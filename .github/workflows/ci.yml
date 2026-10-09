@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    env:
+      # Tests are offline by design: saved HTML fixtures + mock LLM. No secrets needed.
+      MOCK_LLM: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Tests
+        run: python -m pytest
+      - name: Demo run (mock LLM + HTML fixtures)
+        run: |
+          enrich run input/companies.csv --dry-run
+          enrich run input/companies.csv --html-fixtures fixtures/sites
+          cat output/summary.md >> "$GITHUB_STEP_SUMMARY"

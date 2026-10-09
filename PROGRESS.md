@@ -39,7 +39,7 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] End-to-end tests (mock mode), failure-path tests
 
 ## Phase 7 - CI
-- [ ] GitHub Actions: ruff + pytest on 3.11-3.13, offline
+- [x] GitHub Actions: ruff + pytest on 3.11-3.13, offline
 
 ## Phase 8 - Docs
 - [ ] README.md (Mermaid architecture, quickstart, config, limitations, compliance)
