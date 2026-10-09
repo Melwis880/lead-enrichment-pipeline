@@ -44,6 +44,14 @@ scraping), paid data APIs, CRM sync, outreach.
    Never invent client results.
 5. Optional `n8n/` workflow JSON that runs the CLI on a schedule and posts the summary.
 
+## Project tracking (required)
+- `PROGRESS.md`: split the work into phases with checkbox tasks. Create it first, re-read it at
+  the start of each work chunk, tick tasks as they finish, and leave an accurate final state
+  (done / not done / next steps) at the end.
+- `DECISIONS.md`: one short entry per architecture or security decision: date, decision,
+  alternatives considered, why. Write it when the decision is made, not afterwards.
+- Commit both with the code.
+
 ## Build log for content (required)
 Keep `BUILD_LOG.md` updated as you work, so the member can turn the build into posts later:
 - Key decisions and why (including options you rejected).
@@ -55,4 +63,4 @@ Commit it with the code; keep it factual, no invented results.
 
 ## Definition of done
 `enrich run` works end to end on the demo list (mock mode and real mode), CI green, docs complete,
-BUILD_LOG.md filled, no secrets in history, PR opened with a summary.
+BUILD_LOG.md, PROGRESS.md and DECISIONS.md up to date, no secrets in history, PR opened with a summary.
