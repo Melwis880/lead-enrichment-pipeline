@@ -1,0 +1,68 @@
+{
+  "name": "Lead enrichment - weekly run",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "a1f0c6de-0001-4c1e-9d6a-000000000001",
+      "name": "Every Monday 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "cd /opt/lead-enrichment-pipeline && . .venv/bin/activate && enrich run input/companies.csv > output/run.log 2>&1; status=$?; cat output/summary.md 2>/dev/null || tail -n 20 output/run.log; exit $status"
+      },
+      "id": "a1f0c6de-0002-4c1e-9d6a-000000000002",
+      "name": "Run enrich CLI",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [240, 0],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#sales-leads",
+          "mode": "name"
+        },
+        "text": "={{ $json.exitCode === 0 ? 'Weekly lead enrichment finished. Full list: output/enriched.csv\\n\\n' + $json.stdout : 'Lead enrichment FAILED (exit ' + $json.exitCode + ')\\n' + ($json.stdout || '') + ($json.stderr || '') }}",
+        "otherOptions": {}
+      },
+      "id": "a1f0c6de-0003-4c1e-9d6a-000000000003",
+      "name": "Post summary to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [480, 0],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday 07:00": {
+      "main": [[{ "node": "Run enrich CLI", "type": "main", "index": 0 }]]
+    },
+    "Run enrich CLI": {
+      "main": [[{ "node": "Post summary to Slack", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
