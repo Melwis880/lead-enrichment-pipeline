@@ -52,3 +52,46 @@ One entry per architecture or security decision, written when the decision is ma
   model's output.
 - **Why:** Data minimisation (GDPR Art. 5(1)(c)): personal data we never send cannot leak into
   the output, logs, or a third-party processor. The output-side check stays as a second layer.
+
+## 2026-10-09 - Two layers of output control: structured outputs + per-field validation
+- **Decision:** The request uses Claude structured outputs (`output_config.format` with a strict
+  JSON schema), and the answer is then validated field by field in pydantic/plain Python. A bad
+  field is flagged and blanked; the rest of the record is kept. Fields below
+  `validation.min_confidence` (default 0.6) are flagged and blanked too ("flagged, not guessed").
+- **Alternatives:** `messages.parse()` into one pydantic model (one bad field fails the whole
+  company); tool use with a forced tool (same guarantee, more plumbing); free-text JSON in the
+  prompt (no schema guarantee).
+- **Why:** The schema guarantees shape; it cannot guarantee truth or policy. Per-field checks keep
+  partial results useful, and the flag tells the salesperson exactly what to double-check.
+
+## 2026-10-09 - Contact channels must be verifiable in the fetched pages
+- **Decision:** `contact_email` is accepted only if it is role-based (allowlist) and literally
+  appears in the fetched pages; `contact_form_url` only if it is on the company's own site and we
+  detected a form with an email field or textarea on that exact page.
+- **Alternatives:** Trust the model's answer; pattern-guess `info@domain`.
+- **Why:** Contact data is what a salesperson acts on. A hallucinated or guessed address is worse
+  than a blank, and a guessed personal address would be a GDPR problem.
+
+## 2026-10-09 - Default model and prompt-injection stance
+- **Decision:** Default `claude-haiku-4-5-20251001` (per brief), overridable with `ENRICH_MODEL`
+  or `llm.model`. Website text is wrapped in `<pages>` and the system prompt declares it
+  untrusted data. No tools are given to the model.
+- **Alternatives:** A larger model by default (higher cost for a simple extraction task).
+- **Why:** Extraction from 3 short pages is a small task. A hostile page can at most distort its
+  own record, and that record still passes the schema and evidence checks.
+
+## 2026-10-09 - Error policy: fail the company, not the run (except misconfiguration)
+- **Decision:** Network errors, HTTP errors, refusals, truncated or invalid output mark that one
+  company as failed with a reason. Auth errors and unknown model abort the whole run immediately.
+- **Alternatives:** Abort on any error; silently skip.
+- **Why:** One broken website should not cost the other 99 results, but a bad API key would fail
+  100 times and waste the user's time.
+
+## 2026-10-09 - LLM cache + hand-written mock fixtures
+- **Decision:** Real LLM answers are cached on disk keyed by model + prompt version + system
+  prompt + schema + page text. `MOCK_LLM=1` reads `fixtures/llm/<domain>.json`, which were
+  written by hand for the invented demo companies and are labeled as such.
+- **Alternatives:** Record real responses as fixtures (impossible here: no API key in the build
+  environment); a heuristic fake extractor.
+- **Why:** Tests and CI stay offline and deterministic. Hand-written fixtures are honest about
+  what they are, and they deliberately include bad fields to exercise the validation layer.

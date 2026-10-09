@@ -22,11 +22,11 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] Tests
 
 ## Phase 4 - Extraction + validation
-- [ ] Strict JSON schema for the LLM, pydantic validation with per-field flags
-- [ ] Evidence check: contact channels must appear in fetched pages
-- [ ] Claude extractor (structured outputs, usage + cost tracking, error handling)
-- [ ] Mock extractor (`MOCK_LLM=1`) + LLM response cache
-- [ ] Tests
+- [x] Strict JSON schema for the LLM, pydantic validation with per-field flags
+- [x] Evidence check: contact channels must appear in fetched pages
+- [x] Claude extractor (structured outputs, usage + cost tracking, error handling)
+- [x] Mock extractor (`MOCK_LLM=1`) + LLM response cache
+- [x] Tests
 
 ## Phase 5 - Scoring
 - [ ] YAML ICP config, rule engine with reason per rule, tiers
