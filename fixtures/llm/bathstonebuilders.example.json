@@ -1,0 +1,39 @@
+{
+  "industry": {
+    "value": "construction_and_trades",
+    "detail": "restoration builder",
+    "confidence": 0.95
+  },
+  "description": {
+    "value": "Bath building firm specialising in restoration of listed Georgian properties, extensions and stonework.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "11-50",
+    "evidence": "around 25 masons, carpenters and site managers",
+    "confidence": 0.8
+  },
+  "location": {
+    "city": "Bath",
+    "region": "Somerset",
+    "country_code": "GB",
+    "confidence": 0.95
+  },
+  "products_services": {
+    "value": [
+      "Listed building restoration",
+      "Extensions",
+      "Stonework",
+      "Fixed-price quotes"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "office@bathstonebuilders.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": "https://bathstonebuilders.example/contact",
+    "confidence": 0.9
+  }
+}

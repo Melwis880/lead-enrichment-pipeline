@@ -1,0 +1,38 @@
+{
+  "industry": {
+    "value": "other",
+    "detail": "dog grooming salon",
+    "confidence": 0.85
+  },
+  "description": {
+    "value": "One-to-one dog grooming salon in Clifton Village, Bristol.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "solo",
+    "evidence": "run by one qualified groomer",
+    "confidence": 0.9
+  },
+  "location": {
+    "city": "Bristol",
+    "region": null,
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Dog grooming",
+      "Bath and brush",
+      "Nail clipping"
+    ],
+    "confidence": 0.75
+  },
+  "contact_email": {
+    "value": "hello@cliftonpaws.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}

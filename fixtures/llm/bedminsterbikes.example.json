@@ -1,0 +1,37 @@
+{
+  "industry": {
+    "value": "retail",
+    "detail": "bike repair shop",
+    "confidence": 0.55
+  },
+  "description": {
+    "value": "Bike repair and servicing workshop; website under construction.",
+    "confidence": 0.7
+  },
+  "size_signal": {
+    "value": "unknown",
+    "evidence": null,
+    "confidence": 0.2
+  },
+  "location": {
+    "city": null,
+    "region": null,
+    "country_code": null,
+    "confidence": 0.1
+  },
+  "products_services": {
+    "value": [
+      "Bike repairs",
+      "Bike servicing"
+    ],
+    "confidence": 0.75
+  },
+  "contact_email": {
+    "value": null,
+    "confidence": 0.9
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}

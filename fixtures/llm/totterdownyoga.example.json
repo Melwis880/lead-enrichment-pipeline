@@ -1,0 +1,39 @@
+{
+  "industry": {
+    "value": "fitness_and_sport",
+    "detail": "yoga studio",
+    "confidence": 0.9
+  },
+  "description": {
+    "value": "Small yoga studio on Wells Road, Totterdown, offering vinyasa, yin and beginners' courses with class passes and memberships.",
+    "confidence": 0.88
+  },
+  "size_signal": {
+    "value": "2-10",
+    "evidence": "small studio with a rota of teachers",
+    "confidence": 0.4
+  },
+  "location": {
+    "city": "Bristol",
+    "region": null,
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Vinyasa yoga",
+      "Yin yoga",
+      "Beginners' courses",
+      "Monthly memberships"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "info@totterdownyoga.example",
+    "confidence": 0.6
+  },
+  "contact_form_url": {
+    "value": "https://totterdownyoga.example/contact",
+    "confidence": 0.85
+  }
+}

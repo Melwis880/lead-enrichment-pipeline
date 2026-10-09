@@ -1,0 +1,39 @@
+{
+  "industry": {
+    "value": "health_and_care",
+    "detail": "physiotherapy clinic",
+    "confidence": 0.95
+  },
+  "description": {
+    "value": "Physiotherapy clinic offering sports injury rehab, back and neck treatment and Pilates from two Bristol treatment centres.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "11-50",
+    "evidence": "12 physiotherapists and 3 reception staff",
+    "confidence": 0.85
+  },
+  "location": {
+    "city": "Bristol",
+    "region": null,
+    "country_code": "GB",
+    "confidence": 0.95
+  },
+  "products_services": {
+    "value": [
+      "Physiotherapy",
+      "Sports massage",
+      "Pilates classes",
+      "Injury rehabilitation"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "reception@kingsdownphysio.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": "https://kingsdownphysio.example/contact",
+    "confidence": 0.9
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "industry": {
+    "value": "logistics_and_transport",
+    "detail": "warehousing and haulage",
+    "confidence": 0.95
+  },
+  "description": {
+    "value": "Logistics company offering warehousing, pallet distribution and container haulage from Avonmouth.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "51-200",
+    "evidence": "over 120 staff, fleet of 60 trucks",
+    "confidence": 0.85
+  },
+  "location": {
+    "city": "Avonmouth",
+    "region": "Bristol",
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Warehousing",
+      "Pallet distribution",
+      "Container haulage"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "sales@severnfreight.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}

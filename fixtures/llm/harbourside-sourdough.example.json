@@ -1,0 +1,40 @@
+{
+  "industry": {
+    "value": "food_and_drink",
+    "detail": "artisan sourdough bakery",
+    "confidence": 0.97
+  },
+  "description": {
+    "value": "Bristol bakery making slow-fermented sourdough and pastries, with a shop at Wapping Wharf and wholesale bread for local cafes and restaurants.",
+    "confidence": 0.92
+  },
+  "size_signal": {
+    "value": "2-10",
+    "evidence": "team of eight bakers and shop staff",
+    "confidence": 0.85
+  },
+  "location": {
+    "city": "Bristol",
+    "region": null,
+    "country_code": "GB",
+    "confidence": 0.95
+  },
+  "products_services": {
+    "value": [
+      "Sourdough bread",
+      "Pastries",
+      "Seasonal cakes",
+      "Wholesale bread for cafes",
+      "Trade accounts"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "hello@harbourside-sourdough.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}
