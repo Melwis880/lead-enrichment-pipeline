@@ -18,3 +18,28 @@ One entry per architecture or security decision, written when the decision is ma
   misrepresenting a real business in a public portfolio).
 - **Why:** Reproducible, offline, zero chance of hitting or misdescribing a real company. Real
   sites are supported by the same code path; only the transport differs.
+
+## 2026-10-09 - robots.txt: RFC 9309 status semantics, never configurable off
+- **Decision:** 2xx -> obey rules; 4xx (incl. 401/403) -> allowed; 5xx or network error ->
+  treat the whole site as disallowed. Robots checking has no off switch in config.
+- **Alternatives:** `urllib.robotparser.read()` defaults (treats 401/403 as disallow-all and
+  swallows network errors); a `respect_robots: false` flag for testing.
+- **Why:** RFC 9309 is the current standard, and "unreachable means stay away" is the safe
+  default. A disable flag in a public repo invites misuse; tests use fixtures instead.
+
+## 2026-10-09 - Fetcher follows redirects itself
+- **Decision:** The transport never auto-follows redirects; the fetcher follows up to 5 hops and
+  checks robots.txt + rate limit for every hop's origin.
+- **Alternatives:** `requests` default redirect following.
+- **Why:** `example.com -> www.example.com` is common, and the target host can have different
+  robots rules. Auto-follow would fetch pages without checking them.
+
+## 2026-10-09 - Politeness defaults
+- **Decision:** Sequential processing, >= 2 s between requests to the same host (robots
+  `Crawl-delay` wins if larger; sites asking for > 60 s are skipped), 10 s timeout, 2 retries
+  with exponential backoff only for timeouts / 429 / 5xx, `Retry-After` honoured (capped 60 s),
+  max 3 pages per company, 2 MB per page, one-week disk cache.
+- **Alternatives:** Concurrent fetching across domains (faster, but harder to reason about and
+  not needed for tens-hundreds of companies); no cache (re-hits sites on every re-run).
+- **Why:** A small sales team re-runs the list often while tuning scoring; the cache means a
+  re-run costs the target sites nothing.

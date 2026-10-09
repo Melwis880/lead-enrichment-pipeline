@@ -6,15 +6,15 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] PROGRESS.md, DECISIONS.md, BUILD_LOG.md created
 
 ## Phase 1 - Scaffold
-- [ ] `pyproject.toml`, `src/lead_enrich/` package, `enrich` console script
+- [x] `pyproject.toml`, `src/lead_enrich/` package, `enrich` console script
 - [ ] `.env.example`, `config/settings.yaml`, `config/icp.yaml`
 
 ## Phase 2 - Polite fetching
-- [ ] robots.txt handling (RFC 9309 status-code semantics, Crawl-delay)
-- [ ] Clear User-Agent, per-domain rate limit, timeouts, retries with backoff
-- [ ] On-disk response cache
-- [ ] HTML-fixture transport for offline runs and tests
-- [ ] Tests: robots, fetcher (retries, cache, rate limit, failure paths)
+- [x] robots.txt handling (RFC 9309 status-code semantics, Crawl-delay)
+- [x] Clear User-Agent, per-domain rate limit, timeouts, retries with backoff
+- [x] On-disk response cache
+- [x] HTML-fixture transport for offline runs and tests
+- [x] Tests: robots, fetcher (retries, cache, rate limit, failure paths)
 
 ## Phase 3 - Parsing
 - [ ] Visible-text extraction, about/contact page discovery
