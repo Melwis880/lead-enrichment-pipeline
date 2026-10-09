@@ -49,9 +49,9 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 ## Phase 9 - Definition of done
 - [x] Mock-mode demo run end to end
 - [ ] Real-mode demo run (needs `ANTHROPIC_API_KEY`; blocked in the build environment)
-- [ ] CI green
+- [x] CI green (GitHub Actions on PR #1: Python 3.11, 3.12, 3.13)
 - [x] No secrets in history (checked `git log -p` for key patterns; only `.env.example` tracked)
-- [ ] PR opened with summary
+- [x] PR opened with summary (draft until the real-mode run is done)
 
 ## Current state (2026-10-09)
 
@@ -59,7 +59,7 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - Full pipeline: polite fetching, parsing + redaction, Claude extraction with structured
   outputs, per-field validation with flags, YAML scoring, CSV/Markdown/JSON outputs, CLI with
   `--dry-run`, `--html-fixtures`, `--limit`, `--no-cache`, `MOCK_LLM=1`.
-- 92 offline tests passing locally on Python 3.11, 3.12, 3.13; ruff clean.
+- 92 offline tests passing on Python 3.11, 3.12, 3.13 locally and in GitHub Actions; ruff clean.
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 
