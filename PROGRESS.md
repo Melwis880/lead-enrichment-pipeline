@@ -17,9 +17,9 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] Tests: robots, fetcher (retries, cache, rate limit, failure paths)
 
 ## Phase 3 - Parsing
-- [ ] Visible-text extraction, about/contact page discovery
-- [ ] Generic vs. personal email detection; redact personal emails before LLM
-- [ ] Tests
+- [x] Visible-text extraction, about/contact page discovery
+- [x] Generic vs. personal email detection; redact personal emails before LLM
+- [x] Tests
 
 ## Phase 4 - Extraction + validation
 - [ ] Strict JSON schema for the LLM, pydantic validation with per-field flags

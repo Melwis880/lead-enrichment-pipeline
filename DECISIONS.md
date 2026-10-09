@@ -43,3 +43,12 @@ One entry per architecture or security decision, written when the decision is ma
   not needed for tens-hundreds of companies); no cache (re-hits sites on every re-run).
 - **Why:** A small sales team re-runs the list often while tuning scoring; the cache means a
   re-run costs the target sites nothing.
+
+## 2026-10-09 - Personal data minimisation happens before the LLM call
+- **Decision:** Only role-based mailboxes (`info@`, `hello@`, `contact@` ... fixed allowlist) are
+  kept. Every other email address is replaced with `[personal email removed]` in the page text
+  before it is sent to the model. Team / staff / careers pages are never fetched.
+- **Alternatives:** Send raw text and tell the model to ignore personal data; filter only the
+  model's output.
+- **Why:** Data minimisation (GDPR Art. 5(1)(c)): personal data we never send cannot leak into
+  the output, logs, or a third-party processor. The output-side check stays as a second layer.
