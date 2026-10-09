@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "Enrich a list of company websites into a scored, sales-ready lead list (public business info only)."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
 dependencies = [
     "anthropic>=1.12,<2",
     "beautifulsoup4>=4.12",
