@@ -42,13 +42,38 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] GitHub Actions: ruff + pytest on 3.11-3.13, offline
 
 ## Phase 8 - Docs
-- [ ] README.md (Mermaid architecture, quickstart, config, limitations, compliance)
-- [ ] CASE_STUDY.md (problem, how, result, before/after table)
-- [ ] Optional n8n workflow
+- [x] README.md (Mermaid architecture, quickstart, config, limitations, compliance)
+- [x] CASE_STUDY.md (problem, how, result, before/after table)
+- [x] Optional n8n workflow
 
 ## Phase 9 - Definition of done
 - [x] Mock-mode demo run end to end
-- [ ] Real-mode demo run (needs `ANTHROPIC_API_KEY`)
+- [ ] Real-mode demo run (needs `ANTHROPIC_API_KEY`; blocked in the build environment)
 - [ ] CI green
-- [ ] No secrets in history
+- [x] No secrets in history (checked `git log -p` for key patterns; only `.env.example` tracked)
 - [ ] PR opened with summary
+
+## Current state (2026-10-09)
+
+**Done**
+- Full pipeline: polite fetching, parsing + redaction, Claude extraction with structured
+  outputs, per-field validation with flags, YAML scoring, CSV/Markdown/JSON outputs, CLI with
+  `--dry-run`, `--html-fixtures`, `--limit`, `--no-cache`, `MOCK_LLM=1`.
+- 92 offline tests passing locally on Python 3.11, 3.12, 3.13; ruff clean.
+- Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
+- README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
+
+**Not done**
+- Real-mode run (real Claude API). The build environment has no API key and blocks outbound
+  web traffic, so real latency, tokens and cost are not measured. CASE_STUDY marks them pending.
+- n8n workflow not yet imported into a live n8n instance.
+
+**Next steps**
+1. `cp .env.example .env`, add `ANTHROPIC_API_KEY`, run
+   `enrich run input/companies.csv --html-fixtures fixtures/sites`; copy the measured numbers
+   from `output/run_stats.json` into CASE_STUDY.md and BUILD_LOG.md, and compare the real
+   extraction against the hand-written mock answers.
+2. Run live on a small list of real public business websites you are allowed to crawl, and
+   check 20 rows by hand for field accuracy.
+3. Time the manual process on ~10 companies to replace the labeled 6-minute estimate.
+4. Import and test the n8n workflow.
