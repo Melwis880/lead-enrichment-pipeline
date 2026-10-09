@@ -95,3 +95,12 @@ One entry per architecture or security decision, written when the decision is ma
   environment); a heuristic fake extractor.
 - **Why:** Tests and CI stay offline and deterministic. Hand-written fixtures are honest about
   what they are, and they deliberately include bad fields to exercise the validation layer.
+
+## 2026-10-09 - Scoring is plain rules in YAML, not a model
+- **Decision:** `config/icp.yaml` holds points for industry, size, location, verified contact
+  channel and keywords; the score is their sum clamped to 0-100, mapped to tiers. Each rule
+  writes a human-readable reason (`+30 size 2-10`). Fewer than 2 known core fields (industry,
+  size, location) gives tier `review` instead of a misleadingly low score. Flagged fields score 0.
+- **Alternatives:** Ask the LLM for a fit score; a trained model.
+- **Why:** The sales team must be able to read and change why a lead ranks where it does. There is
+  no labeled data to train on, and an LLM score is neither stable nor explainable.

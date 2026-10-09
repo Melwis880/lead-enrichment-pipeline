@@ -7,7 +7,7 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 
 ## Phase 1 - Scaffold
 - [x] `pyproject.toml`, `src/lead_enrich/` package, `enrich` console script
-- [ ] `.env.example`, `config/settings.yaml`, `config/icp.yaml`
+- [x] `.env.example`, `config/settings.yaml`, `config/icp.yaml`
 
 ## Phase 2 - Polite fetching
 - [x] robots.txt handling (RFC 9309 status-code semantics, Crawl-delay)
@@ -29,8 +29,8 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] Tests
 
 ## Phase 5 - Scoring
-- [ ] YAML ICP config, rule engine with reason per rule, tiers
-- [ ] Tests
+- [x] YAML ICP config, rule engine with reason per rule, tiers
+- [x] Tests
 
 ## Phase 6 - Pipeline + CLI + output
 - [ ] `enrich run input/companies.csv`, `--dry-run`, `--html-fixtures`

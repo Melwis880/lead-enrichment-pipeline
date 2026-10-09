@@ -1,0 +1,52 @@
+# Ideal customer profile for the demo: a small agency selling bookkeeping software to local
+# businesses around Bristol, UK. Every rule adds (or subtracts) points and records a reason.
+# Points here are a starting point to tune with the sales team, not a validated model.
+name: "Local small businesses near Bristol that need bookkeeping software"
+
+tiers:              # minimum score per tier, highest first
+  A: 60
+  B: 35
+  C: 0
+min_known_core_fields: 2   # of industry / size / location; fewer -> tier "review"
+
+industry:
+  points:
+    construction_and_trades: 25   # lots of invoices, quotes, materials
+    food_and_drink: 20
+    hospitality: 20
+    retail: 20
+    beauty_and_wellness: 15
+    fitness_and_sport: 15
+    health_and_care: 10
+    creative_and_media: 10
+    professional_services: 10
+    logistics_and_transport: 10
+    manufacturing: 5
+    other: 5
+    education: 0
+    nonprofit: 0
+    software_and_it: 0
+    accounting_and_finance: -20   # channel partners or competitors, not buyers
+
+size:
+  points:
+    solo: 15
+    "2-10": 30
+    "11-50": 25
+    "51-200": 5
+    "201+": -20       # usually has a finance team and an ERP
+
+location:
+  target_cities: [Bristol, Bath, Weston-super-Mare, Clevedon, Portishead]
+  city_points: 25
+  target_countries: [GB]
+  country_points: 10
+
+contact:
+  points: 10          # verified generic email or contact form: the lead is actionable
+
+keywords:             # searched in description + products/services
+  terms: [invoice, invoicing, wholesale, trade account, catering, subscription, deliveries,
+          "multiple locations", "two shops", "online shop", quotes]
+  points_each: 5
+  max_points: 10
