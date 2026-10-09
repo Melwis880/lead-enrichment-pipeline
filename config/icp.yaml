@@ -26,7 +26,7 @@ industry:
     education: 0
     nonprofit: 0
     software_and_it: 0
-    accounting_and_finance: -20   # channel partners or competitors, not buyers
+    accounting_and_finance: -40   # channel partners or competitors, not buyers
 
 size:
   points:

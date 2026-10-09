@@ -74,7 +74,8 @@ def load_icp(path: str | Path) -> ICP:
 
 
 def _fmt(points: int, text: str) -> str:
-    return f"{points:+d} {text}"
+    # "size 2-10 (+30)": text first, so a CSV cell never starts with "+" or "-"
+    return f"{text} ({points:+d})"
 
 
 def score_lead(e: Enrichment, icp: ICP) -> ScoreResult:
@@ -89,7 +90,7 @@ def score_lead(e: Enrichment, icp: ICP) -> ScoreResult:
         total += pts
         reasons.append(_fmt(pts, f"industry {industry}"))
     else:
-        reasons.append("+0 industry unknown or flagged")
+        reasons.append(_fmt(0, "industry unknown or flagged"))
 
     size = e.get("size_signal")
     if size:
@@ -98,7 +99,7 @@ def score_lead(e: Enrichment, icp: ICP) -> ScoreResult:
         total += pts
         reasons.append(_fmt(pts, f"size {size}"))
     else:
-        reasons.append("+0 size unknown or flagged")
+        reasons.append(_fmt(0, "size unknown or flagged"))
 
     loc = e.get("location") or {}
     city, country = (loc.get("city") or ""), (loc.get("country_code") or "")
@@ -113,15 +114,16 @@ def score_lead(e: Enrichment, icp: ICP) -> ScoreResult:
         total += icp.location.country_points
         reasons.append(_fmt(icp.location.country_points, f"in target country ({country})"))
     elif city or country:
-        reasons.append(f"+0 outside target area ({', '.join(x for x in (city, country) if x)})")
+        where = ", ".join(x for x in (city, country) if x)
+        reasons.append(_fmt(0, f"outside target area ({where})"))
     else:
-        reasons.append("+0 location unknown or flagged")
+        reasons.append(_fmt(0, "location unknown or flagged"))
 
     if e.get("contact_email") or e.get("contact_form_url"):
         total += icp.contact.points
         reasons.append(_fmt(icp.contact.points, "verified business contact channel"))
     else:
-        reasons.append("+0 no verified contact channel")
+        reasons.append(_fmt(0, "no verified contact channel"))
 
     haystack = " ".join(
         [e.get("description") or "", " ".join(e.get("products_services") or [])]

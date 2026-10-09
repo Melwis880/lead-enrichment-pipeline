@@ -31,9 +31,9 @@ def test_ideal_lead_scores_tier_a_with_reasons(icp):
     result = score_lead(e, icp)
     assert result.tier == "A"
     assert result.score == 25 + 30 + 25 + 10 + 10
-    assert "+30 size 2-10" in result.reasons
-    assert "+25 in target area (Bristol)" in result.reasons
-    assert any(r.startswith("+10 keywords") for r in result.reasons)
+    assert "size 2-10 (+30)" in result.reasons
+    assert "in target area (Bristol) (+25)" in result.reasons
+    assert any(r.startswith("keywords") and r.endswith("(+10)") for r in result.reasons)
 
 
 def test_negative_rules_apply(icp):
@@ -44,25 +44,25 @@ def test_negative_rules_apply(icp):
     )
     result = score_lead(e, icp)
     assert result.score == 0  # clamped at 0
-    assert "-20 industry accounting_and_finance" in result.reasons
+    assert "industry accounting_and_finance (-40)" in result.reasons
     assert result.tier == "C"
 
 
 def test_country_match_when_city_not_targeted(icp):
     e = enrichment(location={"city": "Leeds", "region": None, "country_code": "GB"})
-    assert "+10 in target country (GB)" in score_lead(e, icp).reasons
+    assert "in target country (GB) (+10)" in score_lead(e, icp).reasons
 
 
 def test_missing_core_fields_route_to_review(icp):
     e = enrichment(industry="retail")
     result = score_lead(e, icp)
     assert result.tier == "review"
-    assert "+0 size unknown or flagged" in result.reasons
+    assert "size unknown or flagged (+0)" in result.reasons
 
 
 def test_keyword_points_are_capped(icp):
     e = enrichment(products_services=["invoicing", "wholesale", "catering", "deliveries"])
-    assert any(r.startswith("+10 keywords") for r in score_lead(e, icp).reasons)
+    assert any(r.startswith("keywords") and r.endswith("(+10)") for r in score_lead(e, icp).reasons)
 
 
 def test_unknown_industry_in_yaml_is_rejected():

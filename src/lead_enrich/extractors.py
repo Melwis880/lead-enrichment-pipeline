@@ -116,6 +116,14 @@ class ClaudeExtractor:
             )
         except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
             raise FatalExtractorError(f"Anthropic API rejected the credentials: {exc}") from exc
+        except TypeError as exc:
+            # Raised by the SDK when no API key / auth token / profile can be found.
+            if "authentication" in str(exc).lower():
+                raise FatalExtractorError(
+                    "No Anthropic credentials found. Set ANTHROPIC_API_KEY (see .env.example) "
+                    "or run with MOCK_LLM=1."
+                ) from exc
+            raise
         except anthropic.NotFoundError as exc:
             raise FatalExtractorError(f"Unknown model '{self.settings.model}': {exc}") from exc
         except anthropic.BadRequestError as exc:

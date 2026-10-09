@@ -11,7 +11,7 @@ One entry per architecture or security decision, written when the decision is ma
   reviewer can read. The target volume (tens to hundreds of companies) does not need async.
 
 ## 2026-10-09 - Demo list: invented companies on `.example` domains
-- **Decision:** `input/companies.csv` lists 12 invented Bristol-area businesses on `*.example`
+- **Decision:** `input/companies.csv` lists 13 invented Bristol-area businesses on `*.example`
   domains (reserved by RFC 2606, cannot resolve). Their websites are saved HTML fixtures.
 - **Alternatives:** A real list of local businesses (needs live network, which this build
   environment does not have; real sites change, so the demo would not be reproducible; risk of
@@ -104,3 +104,25 @@ One entry per architecture or security decision, written when the decision is ma
 - **Alternatives:** Ask the LLM for a fit score; a trained model.
 - **Why:** The sales team must be able to read and change why a lead ranks where it does. There is
   no labeled data to train on, and an LLM score is neither stable nor explainable.
+
+## 2026-10-09 - Names in free text are a known, accepted gap
+- **Decision:** Email addresses are redacted before the LLM; personal *names* in running text
+  ("write to Priya") are not. Mitigations: people pages are never fetched, the schema has no
+  field that can hold a person, the prompt forbids naming individuals, and a test asserts no
+  personal data from the fixtures appears in any output file.
+- **Alternatives:** NER-based name redaction (spaCy or similar: a large dependency, and it both
+  misses names and redacts business names like "Sam's Cafe").
+- **Why:** Found by a test during the build. A half-working name scrubber would give false
+  comfort; the honest position is "minimised and documented", stated in the README.
+
+## 2026-10-09 - CSV cells are protected against formula injection
+- **Decision:** Any cell starting with `= + - @` (tab, CR) gets a leading `'`. Score reasons are
+  written as `size 2-10 (+30)` so normal rows never start with a sign.
+- **Alternatives:** Trust the data (it comes from third-party websites).
+- **Why:** The CSV is opened in Excel/Sheets by salespeople; website text is attacker-controlled.
+
+## 2026-10-09 - Fixture runs simulate, not sleep, politeness delays
+- **Decision:** With `--html-fixtures`, the rate limiter computes delays but does not sleep; the
+  total is reported as "politeness delay (simulated)". Fixture runs use separate cache folders.
+- **Alternatives:** Really sleep (a 13-company demo would take 70+ s for nothing).
+- **Why:** Keeps demo and tests fast while still reporting what a live run would add.

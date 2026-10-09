@@ -33,10 +33,10 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] Tests
 
 ## Phase 6 - Pipeline + CLI + output
-- [ ] `enrich run input/companies.csv`, `--dry-run`, `--html-fixtures`
-- [ ] `output/enriched.csv` + `output/summary.md` + `output/run_stats.json`
-- [ ] Demo input + saved HTML fixtures + mock LLM fixtures
-- [ ] End-to-end tests (mock mode), failure-path tests
+- [x] `enrich run input/companies.csv`, `--dry-run`, `--html-fixtures`
+- [x] `output/enriched.csv` + `output/summary.md` + `output/run_stats.json`
+- [x] Demo input + saved HTML fixtures + mock LLM fixtures
+- [x] End-to-end tests (mock mode), failure-path tests
 
 ## Phase 7 - CI
 - [ ] GitHub Actions: ruff + pytest on 3.11-3.13, offline
@@ -47,7 +47,7 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [ ] Optional n8n workflow
 
 ## Phase 9 - Definition of done
-- [ ] Mock-mode demo run end to end
+- [x] Mock-mode demo run end to end
 - [ ] Real-mode demo run (needs `ANTHROPIC_API_KEY`)
 - [ ] CI green
 - [ ] No secrets in history

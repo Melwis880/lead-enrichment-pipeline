@@ -25,7 +25,7 @@ class RobotsPolicy:
     def from_text(cls, text: str, user_agent: str) -> RobotsPolicy:
         parser = RobotFileParser()
         parser.parse(text.splitlines())
-        return cls(user_agent=user_agent, mode="rules", reason="robots.txt parsed", _parser=parser)
+        return cls(user_agent=user_agent, mode="rules", reason="robots.txt rules", _parser=parser)
 
     @classmethod
     def from_status(cls, status: int | None, text: str, user_agent: str) -> RobotsPolicy:

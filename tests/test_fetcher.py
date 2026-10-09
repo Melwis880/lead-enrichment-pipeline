@@ -43,7 +43,7 @@ def test_robots_disallow_skips_page_without_requesting_it(fetch_settings, clock)
     script = {"https://a.example/robots.txt": [(200, "User-agent: *\nDisallow: /\n")]}
     fetcher, transport = make(fetch_settings, clock, script)
     result = fetcher.fetch("https://a.example/about")
-    assert result.skipped and result.skipped.startswith("robots_disallowed")
+    assert result.skipped == "blocked by robots.txt rules"
     assert [u for u, _ in transport.calls] == ["https://a.example/robots.txt"]
 
 

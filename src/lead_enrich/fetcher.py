@@ -129,8 +129,14 @@ class PoliteFetcher:
     sleep: Callable[[float], None] = time.sleep
     _robots: dict[str, RobotsPolicy] = field(default_factory=dict)
     _last_request: dict[str, float] = field(default_factory=dict)
-    stats: dict[str, int] = field(
-        default_factory=lambda: {"requests": 0, "cache_hits": 0, "retries": 0, "robots_blocked": 0}
+    stats: dict[str, float] = field(
+        default_factory=lambda: {
+            "requests": 0,
+            "cache_hits": 0,
+            "retries": 0,
+            "robots_blocked": 0,
+            "waited_s": 0.0,  # politeness delay (real, or simulated when sleep is a no-op)
+        }
     )
 
     # -- public API ---------------------------------------------------------------------
@@ -142,7 +148,7 @@ class PoliteFetcher:
             policy = self.robots_for(current)
             if not policy.allowed(current):
                 self.stats["robots_blocked"] += 1
-                return FetchResult(url, current, skipped=f"robots_disallowed ({policy.reason})")
+                return FetchResult(url, current, skipped=f"blocked by {policy.reason}")
             if (delay := policy.crawl_delay()) and delay > MAX_CRAWL_DELAY_SECONDS:
                 return FetchResult(url, current, skipped=f"crawl_delay_too_long ({delay:.0f}s)")
 
@@ -206,6 +212,7 @@ class PoliteFetcher:
         if last is not None:
             remaining = delay - (self.clock() - last)
             if remaining > 0:
+                self.stats["waited_s"] += remaining
                 self.sleep(remaining)
         self._last_request[origin] = self.clock()
 

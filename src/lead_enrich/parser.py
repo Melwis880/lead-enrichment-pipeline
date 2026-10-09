@@ -21,7 +21,7 @@ GENERIC_LOCAL_PARTS = frozenset(
 )
 
 ABOUT_HINTS = ("about", "about-us", "who-we-are", "our-story", "company", "ueber-uns")
-CONTACT_HINTS = ("contact", "get-in-touch", "find-us", "visit-us", "impressum", "imprint")
+CONTACT_HINTS = ("contact", "get-in-touch", "find-us", "visit", "impressum", "imprint")
 # Pages that list individuals. We do not need them and do not fetch them.
 EXCLUDED_HINTS = ("team", "staff", "people", "careers", "jobs", "login", "cart", "privacy")
 

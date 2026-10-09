@@ -143,3 +143,10 @@ def test_mock_extractor_reads_fixture(tmp_path):
     ex = MockExtractor(tmp_path)
     assert ex.extract("Shop", "shop.example", "doc").data == PAYLOAD
     assert "no mock fixture" in ex.extract("X", "x.example", "doc").error
+
+
+def test_missing_credentials_abort_with_clear_message():
+    exc = TypeError("Could not resolve authentication method. Expected one of api_key ...")
+    ex = ClaudeExtractor(LLMSettings(), client=FakeClient(exc))
+    with pytest.raises(FatalExtractorError, match="ANTHROPIC_API_KEY"):
+        ex.extract("S", "s.example", "doc")
