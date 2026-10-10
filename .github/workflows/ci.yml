@@ -20,6 +20,8 @@ jobs:
       MOCK_LLM: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false  # no GITHUB_TOKEN left in .git/config for later steps
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}

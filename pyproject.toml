@@ -10,16 +10,17 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=1.12,<2",
-    "beautifulsoup4>=4.12",
-    "click>=8.1",
-    "protego>=0.4",
-    "pydantic>=2.6",
-    "PyYAML>=6.0",
-    "requests>=2.31",
+    "beautifulsoup4>=4.12,<5",
+    "click>=8.1,<9",
+    "protego>=0.4,<1",
+    "pydantic>=2.6,<3",
+    "PyYAML>=6.0,<7",
+    "requests>=2.31,<3",
+    "urllib3>=2.2,<3",  # used directly: HTTPResponse.read1 for deadline-bounded reads
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8,<10", "ruff>=0.6,<1"]
 
 [project.scripts]
 enrich = "lead_enrich.cli:main"
