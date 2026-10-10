@@ -113,7 +113,11 @@ def run(
     if html_fixtures:
         # Waiting between reads of local files protects nobody; the wait is still counted.
         fetcher = PoliteFetcher(
-            settings.fetch, FixtureTransport(html_fixtures), http_cache, sleep=lambda _s: None
+            settings.fetch,
+            FixtureTransport(html_fixtures),
+            http_cache,
+            sleep=lambda _s: None,
+            host_check=None,  # saved files, no network
         )
     else:
         fetcher = PoliteFetcher(

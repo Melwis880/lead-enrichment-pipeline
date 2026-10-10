@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
+import socket
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -126,6 +128,52 @@ class FixtureTransport:
         return HttpResponse(url, 200, {"Content-Type": ctype}, file.read_text(encoding="utf-8"))
 
 
+class UnsafeHostError(Exception):
+    """The URL points at a non-public address or scheme (SSRF guard)."""
+
+
+NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
+def is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Globally routable unicast only. IPv6 forms that embed an IPv4 address (mapped, 6to4,
+    NAT64) are judged by the embedded address, so ::ffff:127.0.0.1 is not "public"."""
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and ip in NAT64_PREFIX:
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None and not is_public_ip(embedded):
+            return False
+    return ip.is_global and not ip.is_multicast
+
+
+def check_public_host(url: str, resolver: Callable[..., list] = socket.getaddrinfo) -> None:
+    """Raise UnsafeHostError unless every address the host resolves to is public.
+
+    Called before every request (pages, robots.txt, each redirect hop, each retry). Known gap:
+    requests resolves the name again when it connects, so a DNS-rebinding server could answer
+    differently the second time. See README "Limitations".
+    """
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise UnsafeHostError(f"unsupported scheme {parts.scheme!r}")
+    host = parts.hostname
+    if not host:
+        raise UnsafeHostError("URL has no host")
+    try:
+        addresses = [ipaddress.ip_address(host.split("%", 1)[0])]
+    except ValueError:
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        try:
+            infos = resolver(host, port, proto=socket.IPPROTO_TCP)
+        except (OSError, UnicodeError) as exc:  # socket.gaierror is an OSError
+            raise TransportError(f"DNS lookup failed for {host}") from exc
+        addresses = [ipaddress.ip_address(str(info[4][0]).split("%", 1)[0]) for info in infos]
+    for ip in addresses:
+        if not is_public_ip(ip):
+            raise UnsafeHostError(f"{host} resolves to non-public address {ip}")
+
+
 @dataclass
 class FetchResult:
     url: str
@@ -153,6 +201,8 @@ class PoliteFetcher:
     cache: JsonDiskCache | None = None
     clock: Callable[[], float] = time.monotonic
     sleep: Callable[[float], None] = time.sleep
+    # SSRF guard, run before every request. Only offline transports (fixtures) may pass None.
+    host_check: Callable[[str], None] | None = check_public_host
     _robots: dict[str, RobotsPolicy] = field(default_factory=dict)
     _last_request: dict[str, float] = field(default_factory=dict)
     stats: dict[str, float] = field(
@@ -171,6 +221,12 @@ class PoliteFetcher:
         """Fetch one HTML page, following up to MAX_REDIRECTS redirects."""
         current = url
         for _ in range(MAX_REDIRECTS + 1):
+            try:
+                self._check_host(current)
+            except UnsafeHostError as exc:
+                return FetchResult(url, current, error=f"blocked: {exc}")
+            except TransportError as exc:
+                return FetchResult(url, current, error=f"network error: {exc}")
             policy = self.robots_for(current)
             if not policy.allowed(current):
                 self.stats["robots_blocked"] += 1
@@ -222,6 +278,11 @@ class PoliteFetcher:
                     status, text = resp.status, resp.text
             except TransportError:
                 status, text = None, ""
+            except UnsafeHostError as exc:
+                # e.g. robots.txt redirecting to an internal address: stay away from the site
+                policy = RobotsPolicy(ua, "disallow_all", f"robots.txt redirect blocked ({exc})")
+                self._robots[origin] = policy
+                return policy
             policy = RobotsPolicy.from_status(status, text, ua)
             if self.cache is not None and status is not None and status < 500:
                 self.cache.set(f"robots:{origin}", {"status": status, "text": text})
@@ -229,6 +290,10 @@ class PoliteFetcher:
         return policy
 
     # -- internals ----------------------------------------------------------------------
+
+    def _check_host(self, url: str) -> None:
+        if self.host_check is not None:
+            self.host_check(url)
 
     def _wait_turn(self, origin: str, policy: RobotsPolicy | None) -> None:
         delay = self.settings.min_delay_seconds
@@ -255,6 +320,7 @@ class PoliteFetcher:
             self.stats["requests"] += 1
             last_try = attempt == attempts - 1
             try:
+                self._check_host(url)  # every attempt: DNS answers can change between tries
                 resp = self.transport.get(url, headers, self.settings.timeout_seconds)
             except TransportError:
                 if last_try:

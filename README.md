@@ -128,11 +128,31 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
   test), honour objections, and follow your country's rules for B2B email marketing (e.g. PECR in
   the UK). This tool is not legal advice.
 
+## Security
+
+Every website, header and model answer is treated as untrusted input.
+
+- **No SSRF.** Before every request (pages, robots.txt, each redirect hop, each retry) the host
+  is resolved and the request is refused unless *every* address is globally routable unicast
+  (`ipaddress.is_global`, with IPv4-mapped, 6to4 and NAT64 forms judged by the embedded IPv4
+  address). Only `http`/`https` URLs are followed. IP-literal hosts in the input CSV are rejected.
+- **One bad site cannot stall or crash the batch.** Each response body is read against a byte
+  cap (after decompression, so gzip bombs are capped too) and an overall deadline
+  (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. Unknown charsets fall
+  back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
+  marks that company `internal_error` and the run continues. If a run is interrupted (Ctrl-C) or
+  stopped by a configuration error, the companies already finished are still written out.
+
 ## Limitations
 
 - **Names in free text are not redacted.** "Email Priya at ..." loses the address but keeps
   "Priya" in the text sent to the LLM. Mitigated (no person fields, prompt forbids names, tests
   check outputs), not eliminated. See DECISIONS.md.
+- **DNS rebinding is not fully closed.** The SSRF check resolves the host, then `requests`
+  resolves it again to connect. A hostile DNS server could answer with a public address the
+  first time and a private one the second. Closing this needs connecting to the checked IP
+  (custom transport adapter with SNI/Host handling); not done in the MVP. Run the tool on a
+  machine without access to sensitive internal services if you crawl untrusted lists.
 - **Size is a signal, not a headcount.** It comes from what the site says ("team of eight").
   Many small sites say nothing, so `size_signal` is often blank.
 - **No JavaScript rendering.** Sites that render content client-side yield little text and land

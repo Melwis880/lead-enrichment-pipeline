@@ -178,7 +178,9 @@ class RecordingExtractor:
 
 
 def make_fetcher(settings):
-    return PoliteFetcher(settings.fetch, FixtureTransport(SITES), sleep=lambda _s: None)
+    return PoliteFetcher(
+        settings.fetch, FixtureTransport(SITES), sleep=lambda _s: None, host_check=None
+    )
 
 
 def test_personal_email_never_reaches_the_llm():
@@ -222,7 +224,9 @@ def test_timeout_site_is_fetch_failed(tmp_path):
     site.mkdir()
     (site / "index.status").write_text("timeout")
     settings = Settings()
-    fetcher = PoliteFetcher(settings.fetch, FixtureTransport(tmp_path), sleep=lambda _s: None)
+    fetcher = PoliteFetcher(
+        settings.fetch, FixtureTransport(tmp_path), sleep=lambda _s: None, host_check=None
+    )
     record = enrich_company(
         Company("Slow", "slow.example"),
         fetcher,

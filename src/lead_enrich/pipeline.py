@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import ipaddress
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -82,6 +83,9 @@ def read_companies(path: str | Path) -> tuple[list[Company], list[str]]:
         for line_no, row in enumerate(reader, start=2):
             row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
             domain = normalize_domain(row.get(domain_col, ""))
+            if _is_ip_literal(domain):
+                warnings.append(f"line {line_no}: skipped, IP addresses are not accepted")
+                continue
             if not domain or "." not in domain:
                 warnings.append(f"line {line_no}: skipped, no valid website")
                 continue
@@ -92,6 +96,14 @@ def read_companies(path: str | Path) -> tuple[list[Company], list[str]]:
             name = row.get(name_col, "") if name_col else ""
             companies.append(Company(name=name or domain, domain=domain))
     return companies, warnings
+
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        return False
+    return True
 
 
 def _fetch_home(fetcher: PoliteFetcher, domain: str) -> FetchResult:

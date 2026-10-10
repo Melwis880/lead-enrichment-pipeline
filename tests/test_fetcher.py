@@ -28,7 +28,9 @@ class ScriptedTransport:
 
 def make(fetch_settings, clock, script, cache=None):
     transport = ScriptedTransport(script)
-    fetcher = PoliteFetcher(fetch_settings, transport, cache, clock=clock, sleep=clock.sleep)
+    fetcher = PoliteFetcher(
+        fetch_settings, transport, cache, clock=clock, sleep=clock.sleep, host_check=None
+    )
     return fetcher, transport
 
 
