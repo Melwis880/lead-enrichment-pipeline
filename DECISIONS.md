@@ -262,7 +262,8 @@ One entry per architecture or security decision, written when the decision is ma
 ## 2026-10-10 - Cost report: per-model price table, unknown means unknown
 - **Decision:** Token prices live in `llm.prices` (model ID -> input/output USD per million
   tokens). The table holds only the model the project uses (`claude-haiku-4-5-20251001`, $1 /
-  $5); no other model prices were added. If the model (for example via `ENRICH_MODEL`) is not in
+  $5) and its alias `claude-haiku-4-5` at the same price (added on request, same day); no other
+  model prices were added. If the model (for example via `ENRICH_MODEL`) is not in
   the table, the CLI warns at start, `cost_usd` and `cost_per_100_companies_usd` are `null` in
   `run_stats.json`, and the summary and dry run say "unknown price".
 - **Alternatives:** Two global price settings (the old way: a different model was silently

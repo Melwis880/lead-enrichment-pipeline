@@ -27,6 +27,7 @@ llm:
   # ENRICH_MODEL) is reported as "unknown price". Check current pricing before relying on it.
   prices:
     claude-haiku-4-5-20251001: {input: 1.0, output: 5.0}
+    claude-haiku-4-5: {input: 1.0, output: 5.0}           # alias of the same model
 
 validation:
   min_confidence: 0.6         # fields below this are flagged and left blank

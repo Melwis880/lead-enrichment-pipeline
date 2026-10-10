@@ -122,7 +122,7 @@ exercised (`FixtureTransport` always sends a correctly cased `Content-Type` with
 | Healthy company (simulation) | 6.4 s | 6.4 s |
 | Header/charset cases handled (4 local cases) | 1 of 4 | 4 of 4 |
 | Mock demo (demo data) | 11 ok, A5/B3/C2/review 1, 47 requests | identical `enriched.csv` and counts |
-| Test suite | 178 tests | 203 tests, ~8-10 s |
+| Test suite | 178 tests | 205 tests, ~8-10 s |
 
 **Post hooks**
 - "My scraper passed every test and would have failed on real websites: the fixtures always sent

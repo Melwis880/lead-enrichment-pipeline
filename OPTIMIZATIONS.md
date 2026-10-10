@@ -536,7 +536,7 @@ against a copy of `src/` from `aaebffa`). `MOCK_LLM=1 pytest` passed after every
 | F6 | `972729d` | `fetch.cache_ttl_hours` 168 -> 72; new `fetch.robots_cache_ttl_hours` = 24 via `JsonDiskCache.get(max_age_hours=...)` |
 | F9 | `c153e5c` | `avg_fetch_time_s` and `slowest_companies` in `run_stats.json` and `summary.md`; demo output refreshed (identical `enriched.csv`). `FetchResult.from_cache` kept: tests use it |
 | LLM cache (security review leftover) | `94afa33` | Cache moved to `pipeline.enrich_company`, stores the validated `Enrichment` only; key adds evidence, `min_confidence`, `VALIDATION_VERSION`. Validation also removes personal emails from free-text fields |
-| Price table | `bd29a44` | `llm.prices` (model -> input/output per MTok), only `claude-haiku-4-5-20251001`; unknown model: start-up warning, `cost_usd: null`, "unknown price" in summary, CLI line and dry run |
+| Price table | `bd29a44` + alias commit | `llm.prices` (model -> input/output per MTok), only `claude-haiku-4-5-20251001` and its alias `claude-haiku-4-5` (same price); unknown model: start-up warning, `cost_usd: null`, "unknown price" in summary, CLI line and dry run |
 
 ### Measurements, before -> after
 
@@ -578,7 +578,7 @@ demo data): `enriched.csv` byte-identical before and after; 11 ok / 1 skipped by
 1 fetch failed; tiers A 5, B 3, C 2, review 1; 47 requests, 2 retries, 4 flagged fields, 1
 personal email redacted; simulated politeness wait 70.9 s; compute 0.09 s.
 
-**Tests:** 178 -> 203 (25 new, 2 extractor-level cache tests replaced by pipeline-level ones).
+**Tests:** 178 -> 205 (27 new, 2 extractor-level cache tests replaced by pipeline-level ones).
 Suite time locally about 6 s -> 8-10 s, mostly from the new real-socket tests.
 
 ### Behaviour changes to be aware of
@@ -591,9 +591,9 @@ Suite time locally about 6 s -> 8-10 s, mostly from the new real-socket tests.
   `cache/llm` to remove them.
 - A personal email in a free-text field is replaced by `[personal email removed]`. In
   `products_services` that can leave an item that is only the placeholder.
-- The price table holds only the dated ID `claude-haiku-4-5-20251001`. The alias
-  `claude-haiku-4-5` (same model) is not listed, so it is reported as "unknown price" until it
-  is added to `llm.prices`.
+- The price table holds only `claude-haiku-4-5-20251001` and its alias `claude-haiku-4-5` (same
+  model, same price). Any other model is reported as "unknown price" until it is added to
+  `llm.prices`.
 
 ### Deferred, and why
 - **F2, rest (per-company time budget):** not part of this request. With the retry and fallback

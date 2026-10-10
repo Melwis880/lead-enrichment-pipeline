@@ -48,6 +48,7 @@ class LLMSettings(BaseModel):
     # as "unknown price", never priced as another model.
     prices: dict[str, ModelPrice] = {
         "claude-haiku-4-5-20251001": ModelPrice(input=1.0, output=5.0),
+        "claude-haiku-4-5": ModelPrice(input=1.0, output=5.0),  # alias of the same model
     }
 
     def price(self) -> ModelPrice | None:

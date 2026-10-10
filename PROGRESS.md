@@ -81,7 +81,8 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] F9 Average fetch time and 3 slowest companies in `run_stats.json` and the summary
 - [x] LLM cache stores only the validated result; personal emails removed from free-text
       fields (open item from the security review)
-- [x] Per-model price table; unknown model reported as "unknown price" with a warning
+- [x] Per-model price table; unknown model reported as "unknown price" with a warning;
+      alias `claude-haiku-4-5` priced like the dated ID
 - [x] Before/after measurements; OPTIMIZATIONS.md "Applied"; BUILD_LOG section
 - [ ] F4 concurrency, F5 model change, F7 input budget, F8 cache size/prune, F10 validator
       reuse: deferred by request (reasons in OPTIMIZATIONS.md "Applied")
@@ -98,8 +99,8 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - Optimization pass (2026-10-10): lowercase headers, missing charset, dead/slow-site retries
   and HTTP fallback, cache lifetimes, timing report, validated-only LLM cache, per-model price
   table. Dead host 33 s -> 5 s and slow-drip host 63 s -> 20 s on local sockets.
-- 203 offline tests passing locally on Python 3.13; ruff clean. CI (3.11-3.13) not yet run on
-  the optimization commits (not pushed).
+- 205 offline tests passing locally on Python 3.13; ruff clean. Optimization commits pushed to
+  PR #1 on 2026-10-10; CI runs them on Python 3.11-3.13 there.
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 

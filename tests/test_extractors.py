@@ -1,11 +1,12 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import anthropic
 import httpx2
 import pytest
 
-from lead_enrich.config import LLMSettings
+from lead_enrich.config import LLMSettings, load_settings
 from lead_enrich.extractors import (
     SYSTEM_PROMPT,
     ClaudeExtractor,
@@ -64,6 +65,15 @@ def test_usage_and_cost_are_reported():
     result = ex.extract("Shop", "shop.example", "doc")
     assert (result.input_tokens, result.output_tokens) == (2000, 400)
     assert result.cost_usd == pytest.approx(0.002 + 0.002)
+
+
+@pytest.mark.parametrize("source", ["defaults", "config/settings.yaml"])
+def test_haiku_4_5_alias_is_priced_like_the_dated_id(source, monkeypatch):
+    monkeypatch.setenv("ENRICH_MODEL", "claude-haiku-4-5")
+    root = Path(__file__).resolve().parents[1]
+    settings = load_settings(None if source == "defaults" else root / source)
+    ex = ClaudeExtractor(settings.llm, client=FakeClient(fake_response(tokens=(2000, 400))))
+    assert ex.extract("Shop", "shop.example", "doc").cost_usd == pytest.approx(0.002 + 0.002)
 
 
 def test_model_without_a_known_price_gets_no_cost_not_haikus():
