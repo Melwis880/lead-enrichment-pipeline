@@ -253,6 +253,8 @@ class PoliteFetcher:
 
             try:
                 resp = self._get_with_retries(current, policy)
+            except UnsafeHostError as exc:  # DNS answer changed since the check above
+                return FetchResult(url, current, error=f"blocked: {exc}")
             except TransportError as exc:
                 return FetchResult(url, current, error=f"network error: {exc}")
 

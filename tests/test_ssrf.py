@@ -150,3 +150,19 @@ def test_input_rejects_ip_literals(tmp_path):
     companies, warnings = read_companies(f)
     assert [c.domain for c in companies] == ["shop.example"]
     assert sum("IP address" in w for w in warnings) == 4
+
+
+def test_dns_answer_changing_between_checks_is_still_a_clean_block():
+    from lead_enrich.config import FetchSettings
+
+    answers = iter(["93.184.216.34", "93.184.216.34", "10.0.0.1"])  # rebinding on 3rd lookup
+
+    def flipping(url):
+        ip = next(answers, "10.0.0.1")
+        check_public_host(url, resolver=fake_resolver({"shop.example": [ip]}))
+
+    transport = Recorder({"https://shop.example/robots.txt": (404, "", {})})
+    fetcher = PoliteFetcher(FetchSettings(), transport, sleep=lambda _s: None, host_check=flipping)
+    result = fetcher.fetch("https://shop.example/")  # must not raise
+    assert result.error and "non-public" in result.error
+    assert "https://shop.example/" not in transport.calls
