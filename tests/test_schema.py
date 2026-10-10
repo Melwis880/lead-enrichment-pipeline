@@ -174,3 +174,11 @@ def test_personal_emails_are_removed_from_free_text_fields():
     assert "jane.smith" not in blob and "sam@" not in blob
     assert "info@shop.example" in e.get("description")  # role mailboxes stay
     assert "[personal email removed]" in e.get("description")
+
+
+def test_company_email_on_an_internationalised_domain_counts_as_on_domain():
+    from lead_enrich.schema import on_company_domain
+
+    assert on_company_domain("info@straße.example", "xn--strae-oqa.example")
+    assert on_company_domain("info@xn--strae-oqa.example", "straße.example")
+    assert not on_company_domain("info@strasse.example", "straße.example")

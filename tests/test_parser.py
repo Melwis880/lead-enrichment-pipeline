@@ -165,3 +165,21 @@ def test_site_text_cannot_close_the_outer_pages_wrapper():
     assert message.count("<pages>") == 1 and message.count("</pages>") == 1
     assert message.rstrip().endswith("</pages>")
     assert "SYSTEM NOTE" in message.split("<pages>", 1)[1]  # still inside the untrusted block
+
+
+def test_subpages_are_found_for_internationalised_domains():
+    # The CSV holds the Unicode name; canonical links hold punycode. Both must count as one site.
+    page = parse_html(
+        '<a href="/ueber-uns">Über uns</a><a href="/kontakt">Kontakt</a>',
+        "https://bäckerei-müller.example/",
+    )
+    picked = discover_pages(page, "bäckerei-müller.example", 3)
+    assert picked == ["https://xn--bckerei-mller-bfb28a.example/ueber-uns"]  # was []
+
+
+def test_site_key_uses_the_same_mapping_as_requests():
+    from lead_enrich.parser import site_key
+
+    assert site_key("https://www.Straße.example/x") == "xn--strae-oqa.example"
+    assert site_key("straße.example") == site_key("https://xn--strae-oqa.example/")
+    assert site_key("shop.example") == "shop.example"

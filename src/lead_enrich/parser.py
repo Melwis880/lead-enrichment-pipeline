@@ -84,8 +84,22 @@ def normalize_domain(raw: str) -> str:
     return host.removeprefix("www.")
 
 
+def site_key(raw: str) -> str:
+    """normalize_domain in the ASCII (punycode) form requests connects to, for comparisons:
+    the input CSV holds 'bäckerei-müller.example' while canonical links hold
+    'xn--bckerei-mller-...'. Uses the same UTS 46 mapping as requests (not Python's IDNA 2003
+    codec, which turns 'ß' into 'ss')."""
+    host = normalize_domain(raw)
+    if not host or host.isascii():
+        return host
+    try:
+        return normalize_domain(canonical_url(f"http://{host}/"))
+    except InvalidURLError:
+        return host
+
+
 def same_site(url: str, domain: str) -> bool:
-    return normalize_domain(url) == normalize_domain(domain)
+    return site_key(url) == site_key(domain)
 
 
 def is_generic_email(email: str) -> bool:

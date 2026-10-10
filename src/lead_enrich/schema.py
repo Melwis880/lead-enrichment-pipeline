@@ -20,6 +20,7 @@ from .parser import (
     normalize_domain,
     redact_personal_emails,
     same_site,
+    site_key,
 )
 
 # Bump when validation rules change, so cached validated results are not reused.
@@ -171,18 +172,10 @@ def _short(raw: Any, limit: int = MAX_SHORT) -> str | None:
     return _text(raw)[:limit] or None
 
 
-def _ascii_domain(domain: str) -> str:
-    domain = domain.strip().lower().rstrip(".")
-    try:
-        return domain.encode("idna").decode("ascii")
-    except UnicodeError:
-        return domain
-
-
 def on_company_domain(email: str, company_domain: str) -> bool:
     """True if the address is at the company's domain or one of its subdomains."""
-    domain = _ascii_domain(email.rsplit("@", 1)[-1])
-    company = _ascii_domain(normalize_domain(company_domain))
+    domain = site_key(email.rsplit("@", 1)[-1])
+    company = site_key(company_domain)
     return bool(company) and (domain == company or domain.endswith("." + company))
 
 
