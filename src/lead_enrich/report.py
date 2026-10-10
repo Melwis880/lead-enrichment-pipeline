@@ -113,12 +113,19 @@ def compute_metrics(records: list[LeadRecord], stats: RunStats) -> dict[str, obj
     tokens_out = sum(r.output_tokens for r in records)
     cost = sum(r.cost_usd for r in records)
     llm_calls = sum(1 for r in records if r.input_tokens)
+    fetch_times = [r.fetch_s for r in records if r.fetch_s]  # companies whose pages were fetched
+    slowest = sorted(records, key=lambda r: r.total_s, reverse=True)[:3]
     return {
         "companies": n,
         "status_counts": dict(Counter(r.status for r in records)),
         "tier_counts": dict(Counter(r.score.tier for r in records if r.score)),
         "wall_time_s": round(stats.wall_time_s, 2),
         "avg_time_per_company_s": round(stats.wall_time_s / n, 2) if n else 0.0,
+        "avg_fetch_time_s": round(sum(fetch_times) / len(fetch_times), 3) if fetch_times else None,
+        "slowest_companies": [
+            {"domain": r.company.domain, "status": r.status, "total_s": round(r.total_s, 3)}
+            for r in slowest
+        ],
         "politeness_wait_s": round(float(stats.fetch.get("waited_s", 0.0)), 1),
         "llm_calls": llm_calls,
         "llm_cache_hits": sum(1 for r in records if r.llm_cached),
@@ -243,6 +250,15 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
         "## Run metrics (measured on this run)",
         "",
         f"- Wall time: {m['wall_time_s']} s ({m['avg_time_per_company_s']} s per company)",
+        f"- Fetch time per company with pages: {m['avg_fetch_time_s']} s on average; slowest "
+        "companies: "
+        + (
+            ", ".join(
+                f"{_md(s['domain'])} ({s['total_s']} s, {_md(s['status'])})"
+                for s in m["slowest_companies"]
+            )
+            or "none"
+        ),
         f"- Politeness delay included: {m['politeness_wait_s']} s "
         "(simulated, not slept, when running on HTML fixtures)",
         f"- HTTP requests: {int(m['fetch'].get('requests', 0))}, cache hits: "

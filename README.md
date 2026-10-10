@@ -19,7 +19,7 @@ bookkeeping software to local businesses around Bristol, UK.
 |---|---|
 | `enriched.csv` | One row per company, best leads first: tier, score, `score_reasons`, extracted fields, per-field confidence, `flags` for anything rejected, `insecure_transport` (some pages only reachable over plain HTTP), pages used |
 | `summary.md` | Status and tier counts, top-10 table, "needs attention" list, measured run metrics |
-| `run_stats.json` | Machine-readable metrics: time, HTTP requests, cache hits, tokens, cost |
+| `run_stats.json` | Machine-readable metrics: time (including average fetch time and the 3 slowest companies), HTTP requests, cache hits, tokens, cost |
 
 Example from the mock demo run (full files in [`examples/demo-mock/`](examples/demo-mock/)):
 

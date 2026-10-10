@@ -1,5 +1,5 @@
 {
-  "started_at": "2026-10-10T09:29:18+00:00",
+  "started_at": "2026-10-10T14:22:43+00:00",
   "input": "input/companies.csv",
   "mode": "mock LLM (saved fixtures) + HTML fixtures from fixtures/sites",
   "model": "none (mock)",
@@ -17,9 +17,27 @@
     "C": 2,
     "review": 1
   },
-  "wall_time_s": 0.07,
+  "wall_time_s": 0.09,
   "avg_time_per_company_s": 0.01,
-  "politeness_wait_s": 71.0,
+  "avg_fetch_time_s": 0.008,
+  "slowest_companies": [
+    {
+      "domain": "avonvalleyplumbing.example",
+      "status": "ok",
+      "total_s": 0.034
+    },
+    {
+      "domain": "harbourside-sourdough.example",
+      "status": "ok",
+      "total_s": 0.009
+    },
+    {
+      "domain": "cotswoldcyber.example",
+      "status": "ok",
+      "total_s": 0.007
+    }
+  ],
+  "politeness_wait_s": 70.9,
   "llm_calls": 0,
   "llm_cache_hits": 0,
   "avg_llm_latency_s": null,
@@ -34,6 +52,6 @@
     "cache_hits": 0,
     "retries": 2,
     "robots_blocked": 1,
-    "waited_s": 71.0
+    "waited_s": 70.9
   }
 }

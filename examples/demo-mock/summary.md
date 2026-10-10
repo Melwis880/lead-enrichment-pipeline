@@ -1,6 +1,6 @@
 # Lead enrichment summary
 
-- Run started: 2026-10-10T09:29:18+00:00 (UTC)
+- Run started: 2026-10-10T14:22:43+00:00 (UTC)
 - Input: input/companies.csv (13 companies)
 - Mode: mock LLM (saved fixtures) + HTML fixtures from fixtures/sites
 - Model: none (mock)
@@ -46,8 +46,9 @@
 
 ## Run metrics (measured on this run)
 
-- Wall time: 0.07 s (0.01 s per company)
-- Politeness delay included: 71.0 s (simulated, not slept, when running on HTML fixtures)
+- Wall time: 0.09 s (0.01 s per company)
+- Fetch time per company with pages: 0.008 s on average; slowest companies: avonvalleyplumbing.example (0.034 s, ok), harbourside-sourdough.example (0.009 s, ok), cotswoldcyber.example (0.007 s, ok)
+- Politeness delay included: 70.9 s (simulated, not slept, when running on HTML fixtures)
 - HTTP requests: 47, cache hits: 0, retries: 2, blocked by robots.txt: 1
 - LLM calls: 0 (cache hits: 0), tokens in/out: 0/0
 - LLM cost: $0.0000 ($0.0000 per 100 companies)

@@ -115,3 +115,28 @@ def test_header_text_never_reaches_error_message():
 )
 def test_md_escaping(raw, expected):
     assert _md(raw) == expected
+
+
+def test_run_stats_and_summary_name_the_slowest_companies(tmp_path):
+    from lead_enrich.pipeline import LeadRecord
+    from lead_enrich.report import write_stats
+
+    records = [
+        LeadRecord(Company("Fast", "fast.example"), fetch_s=1.5, total_s=2.0),
+        LeadRecord(Company("Dead", "dead.example"), status="fetch_failed", total_s=66.0),
+        LeadRecord(Company("Mid", "mid.example"), fetch_s=6.5, total_s=9.0),
+        LeadRecord(Company("Odd", "<!channel>.example"), fetch_s=3.0, total_s=12.0),
+    ]
+    stats = RunStats(input_path="x", mode="test", model="none")
+    payload = write_stats(records, stats, tmp_path / "run_stats.json")
+    assert payload["avg_fetch_time_s"] == pytest.approx((1.5 + 6.5 + 3.0) / 3, abs=1e-3)
+    assert payload["slowest_companies"] == [
+        {"domain": "dead.example", "status": "fetch_failed", "total_s": 66.0},
+        {"domain": "<!channel>.example", "status": "ok", "total_s": 12.0},
+        {"domain": "mid.example", "status": "ok", "total_s": 9.0},
+    ]
+
+    write_summary(records, stats, load_icp(ROOT / "config" / "icp.yaml"), tmp_path / "s.md")
+    text = (tmp_path / "s.md").read_text()
+    assert "dead.example (66.0 s, fetch_failed)" in text
+    assert "<!channel>" not in text
