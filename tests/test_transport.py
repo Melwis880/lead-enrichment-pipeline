@@ -7,7 +7,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from lead_enrich.fetcher import RequestsTransport, TransportError
+from lead_enrich.config import FetchSettings
+from lead_enrich.fetcher import PoliteFetcher, RequestsTransport, TransportError
 
 HTML = "<html><body><p>Café crème</p></body></html>".encode()
 
@@ -28,7 +29,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802
         try:
-            if self.path == "/utf8mb4":
+            if self.path == "/robots.txt":
+                self.send_response(404)
+                self.end_headers()
+            elif self.path == "/lowercase":
+                self._send({"content-type": "text/html; charset=utf-8"}, HTML)
+            elif self.path == "/lowercase-redirect":
+                self.send_response(301)
+                self.send_header("location", "/lowercase")
+                self.end_headers()
+            elif self.path == "/utf8mb4":
                 self._send({"Content-Type": "text/html; charset=utf8mb4"}, HTML)
             elif self.path == "/no-ctype":
                 self._send({}, HTML)
@@ -93,6 +103,17 @@ def test_slow_drip_hits_overall_deadline(server):
         get(server, "/drip", deadline_seconds=1.5)
     # deadline + at most one per-read timeout (2 s), far below the 20 s the server would drip
     assert time.monotonic() - started < 4.5
+
+
+def test_lowercase_header_names_are_understood(server):
+    # Some proxies send "content-type:" / "location:"; header names are case-insensitive.
+    fetcher = PoliteFetcher(
+        FetchSettings(), RequestsTransport(), sleep=lambda _s: None, host_check=None
+    )
+    result = fetcher.fetch(server + "/lowercase-redirect")
+    assert result.ok, result.error
+    assert result.final_url == server + "/lowercase"
+    assert "Café crème" in result.text
 
 
 def test_gzip_body_is_decoded(server):

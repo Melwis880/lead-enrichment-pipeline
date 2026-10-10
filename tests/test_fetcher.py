@@ -99,6 +99,13 @@ def test_honours_retry_after_header(fetch_settings, clock):
     assert 9.0 in clock.sleeps
 
 
+def test_lowercase_retry_after_header_is_honoured(fetch_settings, clock):
+    script = {"https://a.example/": [(429, "", {"retry-after": "9"}), (200, "ok")]}
+    fetcher, _ = make(fetch_settings, clock, script)
+    assert fetcher.fetch("https://a.example/").ok
+    assert 9.0 in clock.sleeps
+
+
 def test_gives_up_after_max_retries(fetch_settings, clock):
     script = {"https://a.example/": [(500, "")]}
     fetcher, transport = make(fetch_settings, clock, script)

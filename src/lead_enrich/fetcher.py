@@ -6,7 +6,7 @@ import ipaddress
 import re
 import socket
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -14,6 +14,7 @@ from urllib.parse import urljoin, urlsplit
 
 import requests
 import urllib3
+from requests.structures import CaseInsensitiveDict
 
 from .cache import JsonDiskCache
 from .config import FetchSettings
@@ -34,8 +35,12 @@ class TransportError(Exception):
 class HttpResponse:
     url: str
     status: int
-    headers: dict[str, str]
+    headers: Mapping[str, str]
     text: str
+
+    def __post_init__(self) -> None:
+        # Header names are case-insensitive (RFC 9110 5.1); some proxies send them lowercase.
+        self.headers = CaseInsensitiveDict(self.headers)
 
 
 class Transport(Protocol):
@@ -75,7 +80,7 @@ class RequestsTransport:
                 return HttpResponse(
                     url,
                     resp.status_code,
-                    dict(resp.headers),
+                    resp.headers,
                     decode_body(bytes(body[: self.max_bytes]), resp.encoding),
                 )
         except requests.Timeout as exc:
