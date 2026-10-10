@@ -87,6 +87,17 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [ ] F4 concurrency, F5 model change, F7 input budget, F8 cache size/prune, F10 validator
       reuse: deferred by request (reasons in OPTIMIZATIONS.md "Applied")
 
+## Phase 12 - Security review of the optimization pass (2026-10-10)
+- [x] Charset allowlist: `punycode`, `utf-7`, `unicode_escape` and other non-web or unknown
+      charsets decode as UTF-8 (80k-character punycode body: 2.4 s -> 0.002 s)
+- [x] No HTTP fallback after a certificate verification failure (new kind `tls_cert`)
+- [x] LLM cache: 30-day TTL; each run prunes expired entries and raw answers from older versions
+- [x] LLM cache key includes PARSER_VERSION; an entry that no longer fits the schema is a miss
+- [x] Fetch/LLM timeouts and cache TTLs must be > 0; robots.txt TTL at most 24 h
+- [x] README: charset rule, certificate rule, cache expiry, phone numbers in free text, cached
+      pages used without a new robots.txt check
+- [ ] Lockfile / hashed runtime dependencies, DNS rebinding: still out of scope
+
 ## Current state (2026-10-10)
 
 **Done**
@@ -99,8 +110,10 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - Optimization pass (2026-10-10): lowercase headers, missing charset, dead/slow-site retries
   and HTTP fallback, cache lifetimes, timing report, validated-only LLM cache, per-model price
   table. Dead host 33 s -> 5 s and slow-drip host 63 s -> 20 s on local sockets.
-- 205 offline tests passing locally on Python 3.13; ruff clean. Optimization commits pushed to
-  PR #1 on 2026-10-10; CI runs them on Python 3.11-3.13 there.
+- Security review of the optimization pass (2026-10-10): charset allowlist, no HTTP fallback
+  after a certificate failure, LLM cache TTL and startup pruning, parser version in the LLM
+  cache key, positive timeouts.
+- 241 offline tests passing locally on Python 3.13; ruff 0.17.0 clean.
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 

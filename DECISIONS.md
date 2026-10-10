@@ -270,3 +270,31 @@ One entry per architecture or security decision, written when the decision is ma
   priced at Haiku 4.5 rates); prices for every current model (would go stale, and adding prices
   was out of scope).
 - **Why:** A wrong number in a cost report is worse than no number.
+
+## 2026-10-10 - Only known web charsets are decoded
+- **Decision:** A declared charset (header or `<meta>`) is used only if it is in a fixed list of
+  web encodings (UTF-8/16, ASCII, ISO-8859-1/2/15, Windows-1250/1251/1252/1254, KOI8, Shift_JIS,
+  EUC-JP, ISO-2022-JP, GB2312/GBK/GB18030, Big5, EUC-KR). Anything else decodes as UTF-8.
+- **Alternatives:** A blocklist of slow codecs (easy to miss one); a time limit on decoding (no
+  clean way to interrupt `bytes.decode`).
+- **Why:** The page chooses its own charset, and some Python text codecs (punycode) are
+  quadratic, which let one site stall the sequential run for minutes.
+
+## 2026-10-10 - No HTTP fallback after a certificate verification failure
+- **Decision:** An HTTPS failure caused by `ssl.SSLCertVerificationError` is kind `tls_cert` and
+  does not trigger the plain-HTTP fallback. The fallback stays for `tls` (no TLS on 443, broken
+  handshake) and refused connections.
+- **Alternatives:** Fall back on every TLS error (the previous behaviour); drop the fallback
+  entirely (would lose small sites that still have no TLS).
+- **Why:** A failed certificate check is what an attacker in the middle produces; falling back
+  would hand them the page and the text sent to the LLM.
+
+## 2026-10-10 - LLM cache: 30-day TTL and pruning at startup
+- **Decision:** `llm.cache_ttl_hours` defaults to 720. Each run first prunes both caches:
+  expired entries, unreadable files, temp leftovers, and in the LLM cache every key that is not
+  `llm-validated:` (raw answers from older versions). The key now includes `PARSER_VERSION`.
+- **Alternatives:** A versioned cache folder (the old folder would still need deleting); a
+  separate `enrich cache purge` command (relies on the operator remembering it); no TTL.
+- **Why:** Validated results can still contain names from free text, and entries that are never
+  read again would otherwise stay on disk for good.
+

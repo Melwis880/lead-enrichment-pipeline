@@ -133,6 +133,32 @@ exercised (`FixtureTransport` always sends a correctly cased `Content-Type` with
 **Screenshot:** `python -m pytest tests/test_transport.py -k "dead_host or deadline" -v`
 next to the before/after table above.
 
+## Security review of the optimization pass (2026-10-10)
+A second, targeted audit of the optimization commits found one medium and three low issues; all
+fixed, each with a test that fails on the previous code.
+- **Charset as a weapon (medium).** Reading the charset from `<meta>` widened an old path: a page
+  declaring `charset=punycode` is decoded with Python's punycode codec, which is quadratic. An
+  80k-character body took 2.4 s; at the 2 MB byte cap it would be many minutes per page, and the
+  download deadline does not cover decoding. Now only known web encodings are used; anything
+  else decodes as UTF-8 (same body: 0.002 s).
+- **Certificate failure fell back to HTTP (low).** requests reports an expired or untrusted
+  certificate as the same `SSLError` as "no TLS on 443", so both triggered the plain-HTTP
+  fallback. A failed certificate check is the typical sign of someone in the middle; it is now
+  its own kind (`tls_cert`) and never falls back.
+- **LLM cache retention (low).** Raw answers from before the validated-only change were never
+  read again and never deleted, and validated entries had no TTL while free text can still hold
+  names. The cache now expires after 30 days and every run prunes expired and outdated entries.
+- **LLM cache key (low).** Added `PARSER_VERSION`, because validation uses the parser's
+  redaction; an entry that no longer fits the schema is now a miss instead of a permanent
+  `internal_error`.
+- Also: timeouts and TTLs must be > 0 (a zero timeout made every company fail), robots.txt TTL
+  is capped at 24 h, and README now names phone numbers in free text and cached pages being used
+  without a new robots.txt check.
+
+**Post hook**
+- "The optimization that fixed garbled text also opened a door: if you trust the page to name
+  its own charset, it can name one that takes minutes to decode."
+
 ## Measured numbers (demo data)
 All from the mock demo: 13 invented companies, saved HTML, hand-written mock LLM answers.
 Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`.
