@@ -108,6 +108,17 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] Fixture transport cannot read files outside its folder
 - [ ] DNS rebinding (connect to the checked IP), SHA-pinned Actions, lockfile: still out of scope
 
+## Phase 14 - Targeted audit of the re-audit fixes (2026-10-10)
+- [x] Every `<` escaped in untrusted LLM text (closes `</pages>`); company name escaped too
+- [x] Sites compared in punycode (`site_key`): IDN domains find subpages again; company-email
+      check uses the same UTS 46 mapping
+- [x] `canonical_url` prepares to a fixed point: robots.txt checked for the path really sent
+- [x] `PARSER_VERSION` 4 (pages cached with raw links are not reused)
+- [x] Unprintable characters (Cc, Cf, Zl, Zp) replaced in every CLI line with external text
+- [x] Fixture files checked after resolving symlinks
+- [x] `::/96` not public; invalid port and unparsable redirect give a clean block
+- [x] README: what `trust_env = False` does and does not cover
+
 ## Current state (2026-10-10)
 
 **Done**
@@ -125,7 +136,9 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
   cache key, positive timeouts.
 - Full re-audit before merge (2026-10-10): netrc leak, SSRF parser mismatch, CVE minimums,
   terminal escapes, page-tag injection, fixture path traversal fixed.
-- 252 offline tests passing locally on Python 3.13; ruff 0.17.0 clean.
+- Targeted audit of those fixes (2026-10-10): `</pages>` escape, IDN regression, fixed-point
+  URLs, parser version, CLI output, fixture symlinks, small host-check hardening.
+- 271 offline tests passing locally on Python 3.13; ruff 0.17.0 clean.
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 

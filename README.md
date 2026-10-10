@@ -154,9 +154,15 @@ Every website, header and model answer is treated as untrusted input.
   Every URL (start URL, redirect target, link) is first converted to the exact form `requests`
   sends, and the check, the same-site test and the request all use that form, so tricks such as
   `http://10.0.0.1\@shop.example/` (one host to Python's URL parser, another to urllib3) or
-  `straße.example` (IDNA 2003 vs UTS 46) cannot point the check and the connection apart.
-- **The environment is not trusted.** The HTTP session ignores `~/.netrc`, proxy and CA-bundle
-  variables (`trust_env = False`), so no saved credentials can be attached to a request.
+  `straße.example` (IDNA 2003 vs UTS 46) cannot point the check and the connection apart. URLs
+  are prepared until they stop changing (so robots.txt is checked for the path really sent),
+  and sites are compared in punycode form, so internationalised domains work.
+- **Saved credentials and proxies from the environment are ignored.** The HTTP session sets
+  `trust_env = False`: no `~/.netrc` credentials, no `HTTP(S)_PROXY`, no `REQUESTS_CA_BUNDLE` /
+  `SSL_CERT_FILE`. On a network that requires a corporate proxy or root certificate, every
+  company will be `fetch_failed`. Not everything is ignored: Python's TLS layer still honours
+  `SSLKEYLOGFILE` (writes TLS keys to that file if set), and the Anthropic SDK reads its own
+  environment for the fixed API host.
 - **One bad site cannot stall or crash the batch.** Each response body is read against a byte
   cap (after decompression, so gzip bombs are capped too) and an overall deadline
   (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. A charset missing from

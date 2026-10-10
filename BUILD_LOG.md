@@ -180,6 +180,25 @@ come from the same root: two parsers reading one URL differently.
 - "My SSRF guard and my HTTP library disagreed about which host was in the same URL. One
   backslash was enough to send a request to the cloud metadata address."
 
+## Targeted audit of the re-audit fixes (2026-10-10)
+The SSRF fix held: about 60,000 URL variants (userinfo, ports, IPv6 zones, percent-encoding,
+IDNA, full-width characters) never made the checked host and the connected host differ. The
+audit still found one medium and several low issues, two of them introduced by my own fixes:
+- **`</pages>` (medium).** The tag escape matched `<page\b`, and "pages" has no word boundary
+  after "page", so site text could close the outer wrapper. Now every `<` is escaped.
+- **IDN regression (introduced by the canonical-URL fix).** Links became punycode while the CSV
+  domain stayed Unicode, so `bäckerei-müller.example` found no subpages and every contact form
+  looked off-site. Sites are now compared in punycode, with the same UTS 46 mapping requests
+  uses (Python's `idna` codec maps `ß` to `ss`, a third mismatch).
+- **Not idempotent.** One prepare turned `/x/%2e%2e/private` into `/x/../private`, and requests
+  turned that into `/private` when sending: robots.txt checked one path, another was requested.
+  URLs are now prepared until they stop changing.
+- Also: `PARSER_VERSION` bump, sanitised CLI output everywhere (including U+202E), fixture
+  symlink escape, `::/96` addresses, clean blocks for invalid ports and redirect targets.
+
+**Post hook**
+- "My security fix broke German bakeries: the links were now punycode, the input list was not."
+
 ## Measured numbers (demo data)
 All from the mock demo: 13 invented companies, saved HTML, hand-written mock LLM answers.
 Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`.

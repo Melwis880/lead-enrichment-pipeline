@@ -309,3 +309,13 @@ One entry per architecture or security decision, written when the decision is ma
   prepared form removes the class of bug rather than one instance. The tool needs no netrc,
   proxy or custom CA settings.
 
+## 2026-10-10 - Escape every "<" in untrusted LLM text; compare sites in punycode
+- **Decision:** Title, meta description, page text and the CSV company name have every `<`
+  replaced by `&lt;` before they enter the LLM message. Site comparisons (`same_site`, company
+  email domain) use `site_key()`, the punycode host requests connects to. `canonical_url`
+  prepares until the URL is a fixed point (at most 4 passes, else rejected).
+- **Alternatives:** Escape known tag names only (missed `</pages>` the first time); convert the
+  CSV domain itself to punycode (outputs would show `xn--` names to the sales team).
+- **Why:** A rule that names the tags to escape breaks when a wrapper is added or renamed; one
+  form for comparisons removes the Unicode/punycode mismatch the canonical-URL fix created.
+
