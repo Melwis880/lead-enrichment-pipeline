@@ -141,7 +141,9 @@ def run(
     fatal: FatalExtractorError | None = None
     interrupted = False
     try:
-        run_pipeline(companies, fetcher, extractor, settings, icp, stats, _progress, records)
+        run_pipeline(
+            companies, fetcher, extractor, settings, icp, stats, _progress, records, http_cache
+        )
     except FatalExtractorError as exc:
         fatal = exc
         stats.interrupted = f"Stopped by a configuration error: {exc}"

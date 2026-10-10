@@ -211,7 +211,7 @@ def origin_of(url: str) -> str:
 class PoliteFetcher:
     settings: FetchSettings
     transport: Transport
-    cache: JsonDiskCache | None = None
+    cache: JsonDiskCache | None = None  # robots.txt only; pages are cached after parsing
     clock: Callable[[], float] = time.monotonic
     sleep: Callable[[float], None] = time.sleep
     # SSRF guard, run before every request. Only offline transports (fixtures) may pass None.
@@ -247,10 +247,6 @@ class PoliteFetcher:
             if (delay := policy.crawl_delay()) and delay > MAX_CRAWL_DELAY_SECONDS:
                 return FetchResult(url, current, skipped=f"crawl_delay_too_long ({delay:.0f}s)")
 
-            if self.cache is not None and (hit := self.cache.get(f"page:{current}")):
-                self.stats["cache_hits"] += 1
-                return FetchResult(url, current, hit["status"], hit["text"], from_cache=True)
-
             try:
                 resp = self._get_with_retries(current, policy)
             except TransportError as exc:
@@ -264,10 +260,8 @@ class PoliteFetcher:
             media_type = safe_media_type(resp.headers.get("Content-Type", ""))
             if media_type not in HTML_MEDIA_TYPES:
                 return FetchResult(url, current, resp.status, error=f"not HTML ({media_type})")
-            text = resp.text[: self.settings.max_page_bytes]
-            if self.cache is not None:
-                self.cache.set(f"page:{current}", {"status": 200, "text": text})
-            return FetchResult(url, current, 200, text)
+            # Raw HTML is returned, never cached here: see pipeline.PageSource.
+            return FetchResult(url, current, 200, resp.text[: self.settings.max_page_bytes])
         return FetchResult(url, current, error="too many redirects")
 
     def robots_for(self, url: str) -> RobotsPolicy:

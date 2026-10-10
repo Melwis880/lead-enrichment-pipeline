@@ -10,10 +10,18 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .cache import JsonDiskCache
 from .config import Settings
 from .extractors import Extractor, FatalExtractorError
 from .fetcher import FetchResult, PoliteFetcher
-from .parser import ParsedPage, build_llm_document, discover_pages, normalize_domain, parse_html
+from .parser import (
+    PARSER_VERSION,
+    ParsedPage,
+    build_llm_document,
+    discover_pages,
+    normalize_domain,
+    parse_html,
+)
 from .schema import Enrichment, Evidence, ExtractionError, validate_extraction
 from .scoring import ICP, ScoreResult, score_lead
 
@@ -106,14 +114,42 @@ def _is_ip_literal(host: str) -> bool:
     return True
 
 
-def _fetch_home(fetcher: PoliteFetcher, domain: str) -> FetchResult:
-    result = fetcher.fetch(f"https://{domain}/")
+class PageSource:
+    """Fetch + parse, with an optional cache of the *parsed, redacted* page.
+
+    Raw HTML never touches the disk: what is cached is the ParsedPage, whose text already has
+    personal email addresses removed. The key carries PARSER_VERSION, so a change to parsing or
+    redaction invalidates older entries instead of reusing weaker-redacted text.
+    """
+
+    def __init__(self, fetcher: PoliteFetcher, cache: JsonDiskCache | None = None) -> None:
+        self.fetcher = fetcher
+        self.cache = cache
+
+    def get(self, url: str) -> tuple[FetchResult, ParsedPage | None]:
+        key = f"parsed-{PARSER_VERSION}:{url}"
+        if self.cache is not None and (hit := self.cache.get(key)):
+            self.fetcher.stats["cache_hits"] += 1
+            page = ParsedPage.from_dict(hit["page"])
+            return FetchResult(url, page.url, 200, from_cache=True), page
+        result = self.fetcher.fetch(url)
+        if not result.ok:
+            return result, None
+        page = parse_html(result.text, result.final_url)
+        result.text = ""  # drop the raw HTML as soon as it is parsed
+        if self.cache is not None:
+            self.cache.set(key, {"page": page.to_dict()})
+        return result, page
+
+
+def _fetch_home(source: PageSource, domain: str) -> tuple[FetchResult, ParsedPage | None]:
+    result, page = source.get(f"https://{domain}/")
     if result.error and result.error.startswith("network error"):
         # Some small-business sites still have no working TLS. Try plain HTTP once.
-        fallback = fetcher.fetch(f"http://{domain}/")
+        fallback, fallback_page = source.get(f"http://{domain}/")
         if fallback.ok or fallback.skipped:
-            return fallback
-    return result
+            return fallback, fallback_page
+    return result, page
 
 
 def enrich_company(
@@ -122,25 +158,27 @@ def enrich_company(
     extractor: Extractor,
     settings: Settings,
     icp: ICP,
+    page_cache: JsonDiskCache | None = None,
 ) -> LeadRecord:
     started = time.monotonic()
     record = LeadRecord(company=company)
+    source = PageSource(fetcher, page_cache)
     try:
-        home = _fetch_home(fetcher, company.domain)
+        home, home_page = _fetch_home(source, company.domain)
         if home.skipped:
             record.status, record.error = "skipped_robots", home.skipped
             return record
-        if not home.ok:
+        if home_page is None:
             record.status, record.error = "fetch_failed", f"homepage: {home.error}"
             return record
 
-        pages: list[ParsedPage] = [parse_html(home.text, home.final_url)]
-        record.pages.append(home.final_url)
+        pages: list[ParsedPage] = [home_page]
+        record.pages.append(home_page.url)
         for url in discover_pages(pages[0], company.domain, settings.fetch.max_pages_per_company):
-            sub = fetcher.fetch(url)
-            if sub.ok:
-                pages.append(parse_html(sub.text, sub.final_url))
-                record.pages.append(sub.final_url)
+            _sub, sub_page = source.get(url)
+            if sub_page is not None:
+                pages.append(sub_page)
+                record.pages.append(sub_page.url)
         record.fetch_s = time.monotonic() - started
         record.personal_emails_removed = sum(p.personal_emails_removed for p in pages)
 
@@ -180,6 +218,7 @@ def run_pipeline(
     stats: RunStats,
     progress: Callable[[int, int, LeadRecord], None] | None = None,
     records: list[LeadRecord] | None = None,
+    page_cache: JsonDiskCache | None = None,
 ) -> list[LeadRecord]:
     """Enrich every company. Results are appended to ``records`` as they finish, so a caller
     that passes its own list keeps the finished companies if the run is interrupted."""
@@ -188,7 +227,7 @@ def run_pipeline(
     try:
         for i, company in enumerate(companies, start=1):
             try:
-                record = enrich_company(company, fetcher, extractor, settings, icp)
+                record = enrich_company(company, fetcher, extractor, settings, icp, page_cache)
             except FatalExtractorError:
                 raise
             except Exception as exc:  # one hostile or odd site must never sink the batch

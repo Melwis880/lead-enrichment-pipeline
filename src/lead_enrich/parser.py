@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -26,6 +26,8 @@ CONTACT_HINTS = ("contact", "get-in-touch", "find-us", "visit", "impressum", "im
 EXCLUDED_HINTS = ("team", "staff", "people", "careers", "jobs", "login", "cart", "privacy")
 
 REDACTED_EMAIL = "[personal email removed]"
+# Bump when parsing or redaction changes, so cached parsed pages are not reused.
+PARSER_VERSION = "2"
 STRIP_TAGS = ("script", "style", "noscript", "svg", "iframe", "template", "canvas")
 
 
@@ -45,6 +47,14 @@ class ParsedPage:
     generic_emails: list[str] = field(default_factory=list)
     personal_emails_removed: int = 0
     has_contact_form: bool = False
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ParsedPage:
+        links = [Link(**lk) for lk in data.get("links", [])]
+        return cls(**{**data, "links": links})
 
 
 def normalize_domain(raw: str) -> str:

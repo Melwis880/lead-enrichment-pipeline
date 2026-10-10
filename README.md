@@ -36,7 +36,7 @@ flowchart LR
     A[input/companies.csv] --> B[read + normalise domains]
     B --> C{robots.txt allows?}
     C -- no --> X[status: skipped_robots]
-    C -- yes --> D[Polite fetcher<br/>UA, 2s/site delay, timeout,<br/>retries, disk cache]
+    C -- yes --> D[Polite fetcher<br/>UA, 2s/site delay, deadline,<br/>retries, SSRF guard]
     D --> E[Parser<br/>visible text, about + contact page,<br/>generic emails, contact forms]
     E --> F[Redact personal emails]
     F --> G[Claude extraction<br/>structured output, strict JSON schema]
@@ -49,7 +49,7 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| `fetcher.py` | Robots check per origin (also on each redirect hop), per-site rate limit, timeouts, retries with backoff for timeouts/429/5xx, `Retry-After`, on-disk cache. Transport is swappable: live (`requests`) or saved HTML fixtures. |
+| `fetcher.py` | Robots check per origin (also on each redirect hop), per-site rate limit, timeouts, retries with backoff for timeouts/429/5xx, `Retry-After`, SSRF guard, body deadline and byte cap, robots.txt cache. Transport is swappable: live (`requests`) or saved HTML fixtures. |
 | `robots.py` | RFC 9309 semantics: 2xx obey, 4xx allow, 5xx/network error disallow everything. Rule matching by [protego](https://github.com/scrapy/protego) (longest match, `*` and `$`). `Crawl-delay` honoured. |
 | `parser.py` | Visible text, about/contact page discovery (people/team/careers pages excluded), role-based email detection, personal email redaction, contact-form detection. |
 | `extractors.py` | `ClaudeExtractor` (Anthropic SDK, structured outputs, token usage and cost, LLM response cache) and `MockExtractor` (saved fixtures). |
@@ -119,8 +119,14 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
   pages are never fetched. At most 3 pages per company.
 - **Respect for site owners.** robots.txt is always obeyed (no off switch), the User-Agent names
   the bot and links to this repo, at least 2 s between requests per site, `Crawl-delay` and
-  `Retry-After` honoured, sites asking for more than 60 s delay are skipped, responses cached for a
+  `Retry-After` honoured, sites asking for more than 60 s delay are skipped, pages cached for a
   week so re-runs do not re-hit sites. Check each site's terms of use before running on it.
+- **What is stored on disk.** Raw HTML is never written to disk. The page cache
+  (`cache/http`, one-week TTL) holds only the *parsed* page: visible text with personal emails
+  already removed, title, links and role mailboxes; plus robots.txt files. The LLM cache
+  (`cache/llm`) holds the model's JSON answers. Cache folders are created owner-only (`0700`,
+  files `0600`). Names in running text can still be in the cached text (see Limitations);
+  delete `cache/` to erase everything, e.g. after a run or on an objection.
 - **No secrets in the repo.** Keys come from the environment or a git-ignored `.env`;
   `.env.example` is the only env file committed.
 - **Your responsibilities as the operator:** you are the controller for whatever you do with the

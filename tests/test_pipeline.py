@@ -314,3 +314,21 @@ def test_interrupted_run_still_writes_partial_outputs(in_tmp, monkeypatch):
     assert "Interrupted" in summary
     stats = json.loads((in_tmp / "out" / "run_stats.json").read_text())
     assert stats["interrupted"]
+
+
+def test_cache_at_rest_holds_no_raw_html_or_personal_emails(in_tmp):
+    run_cli(in_tmp)
+    files = [p for p in (in_tmp / "cache").rglob("*.json")]
+    assert files, "the run should have written a cache"
+    blob = "\n".join(p.read_text(encoding="utf-8") for p in files).lower()
+    assert "priya.example@" not in blob  # the personal email on redcliffebooks.example
+    assert "<html" not in blob and "<body" not in blob  # parsed text only, never raw HTML
+
+
+def test_cache_files_are_private(in_tmp):
+    import stat
+
+    run_cli(in_tmp)
+    for p in (in_tmp / "cache").rglob("*"):
+        mode = stat.S_IMODE(p.stat().st_mode)
+        assert mode & 0o077 == 0, f"{p} is readable by group/others ({oct(mode)})"

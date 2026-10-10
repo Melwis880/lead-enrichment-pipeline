@@ -19,5 +19,5 @@ instance** (none was available in the build environment). Check node versions af
 4. In "Post summary to Slack", select your Slack credential and channel.
 5. Run once manually, then activate.
 
-The on-disk caches make weekly re-runs cheap: unchanged pages come from cache for a week, and
+The on-disk caches make weekly re-runs cheap: parsed pages come from cache for a week, and
 unchanged page text never triggers a second LLM call.

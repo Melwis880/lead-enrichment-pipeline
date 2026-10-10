@@ -36,8 +36,13 @@ class JsonDiskCache:
 
     def set(self, key: str, value: dict[str, Any]) -> None:
         path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        # Owner-only: cached pages are third-party content and may include names.
+        for directory in (self.directory, path.parent):
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            os.chmod(directory, 0o700)
         tmp = path.with_suffix(".tmp")
+        tmp.touch(mode=0o600)
+        os.chmod(tmp, 0o600)
         tmp.write_text(
             json.dumps(
                 {"_key": key, "_stored_at": time.time(), "value": value}, ensure_ascii=False

@@ -138,25 +138,43 @@ def test_redirect_is_followed_and_checked_against_target_robots(fetch_settings, 
     assert result.skipped and result.final_url == "https://www.a.example/"
 
 
-def test_disk_cache_avoids_second_request(fetch_settings, clock, tmp_path):
-    script = {"https://a.example/": [(200, "cached body")]}
+def test_page_cache_stores_parsed_redacted_page_and_skips_second_request(
+    fetch_settings, clock, tmp_path
+):
+    from lead_enrich.pipeline import PageSource
+
+    html = "<html><body><p>Hi, write to jane.doe@a.example</p></body></html>"
+    script = {"https://a.example/": [(200, html)]}
     cache = JsonDiskCache(tmp_path)
     fetcher, transport = make(fetch_settings, clock, script, cache)
-    fetcher.fetch("https://a.example/")
-    n_calls = len(transport.calls)
+    _, page = PageSource(fetcher, cache).get("https://a.example/")
+    assert page is not None and len(transport.calls) == 2  # robots.txt + page
 
     fetcher2, transport2 = make(fetch_settings, clock, script, cache)
-    result = fetcher2.fetch("https://a.example/")
-    assert result.from_cache and result.text == "cached body"
-    assert transport2.calls == []  # robots.txt also came from the cache
-    assert n_calls == 2
+    result, page2 = PageSource(fetcher2, cache).get("https://a.example/")
+    assert result.from_cache and transport2.calls == []
+    assert page2.text == page.text and "jane.doe" not in page2.text
+    on_disk = "".join(f.read_text() for f in tmp_path.rglob("*.json"))
+    assert "jane.doe" not in on_disk and "<html" not in on_disk
+
+
+def test_fetcher_caches_robots_but_not_pages(fetch_settings, clock, tmp_path):
+    script = {"https://a.example/": [(200, "<p>body</p>")]}
+    cache = JsonDiskCache(tmp_path)
+    fetcher, _ = make(fetch_settings, clock, script, cache)
+    fetcher.fetch("https://a.example/")
+    fetcher2, transport2 = make(fetch_settings, clock, script, cache)
+    assert not fetcher2.fetch("https://a.example/").from_cache
+    assert [u for u, _ in transport2.calls] == ["https://a.example/"]  # robots from cache
 
 
 def test_errors_are_not_cached(fetch_settings, clock, tmp_path):
+    from lead_enrich.pipeline import PageSource
+
     cache = JsonDiskCache(tmp_path)
     fetcher, _ = make(fetch_settings, clock, {"https://a.example/": [(500, "")]}, cache)
-    fetcher.fetch("https://a.example/")
-    assert cache.get("page:https://a.example/") is None
+    PageSource(fetcher, cache).get("https://a.example/")
+    assert not any("parsed" in f.read_text() for f in tmp_path.rglob("*.json"))
 
 
 @pytest.mark.parametrize("ttl,expect_hit", [(None, True), (0, False)])
