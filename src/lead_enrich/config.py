@@ -66,8 +66,13 @@ def load_settings(path: str | Path | None = None) -> Settings:
     return settings
 
 
+DOTENV_KEYS = frozenset({"ANTHROPIC_API_KEY", "ENRICH_MODEL", "MOCK_LLM"})
+
+
 def load_dotenv(path: str | Path = ".env") -> None:
-    """Minimal .env loader: KEY=VALUE lines, never overrides variables already set."""
+    """Minimal .env loader: KEY=VALUE lines for DOTENV_KEYS only, never overriding variables
+    already set. Anything else (proxies, base URLs, PYTHONPATH...) is ignored, so a stray or
+    planted .env cannot redirect API traffic or code loading."""
     p = Path(path)
     if not p.exists():
         return
@@ -77,5 +82,5 @@ def load_dotenv(path: str | Path = ".env") -> None:
             continue
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip().strip('"').strip("'")
-        if key and value and key not in os.environ:
+        if key in DOTENV_KEYS and value and key not in os.environ:
             os.environ[key] = value
