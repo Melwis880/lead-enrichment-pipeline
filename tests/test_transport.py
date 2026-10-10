@@ -10,11 +10,13 @@ import pytest
 
 from lead_enrich.config import FetchSettings, Settings
 from lead_enrich.extractors import MockExtractor
-from lead_enrich.fetcher import PoliteFetcher, RequestsTransport, TransportError
+from lead_enrich.fetcher import PoliteFetcher, RequestsTransport, TransportError, safe_codec
 from lead_enrich.pipeline import Company, enrich_company
 from lead_enrich.scoring import ICP
 
 HTML = "<html><body><p>Café crème</p></body></html>".encode()
+# Punycode decoding is quadratic: ~80k characters take seconds, ~1M (the byte cap) many minutes.
+PUNY_BOMB = b"a" * 80_000 + b"-" + b"a" * 80_000
 META_UTF8 = '<html><head><meta charset="utf-8"></head><body><p>Café crème</p></body></html>'
 META_CP1252 = (
     '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">'
@@ -53,6 +55,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"Content-Type": "text/html"}, HTML)
             elif self.path == "/no-charset-meta-cp1252":
                 self._send({"Content-Type": "text/html"}, META_CP1252.encode("cp1252"))
+            elif self.path == "/punycode-header":
+                self._send({"Content-Type": "text/html; charset=punycode"}, PUNY_BOMB)
+            elif self.path == "/punycode-meta":
+                self._send({"Content-Type": "text/html"}, b'<meta charset="punycode">' + PUNY_BOMB)
             elif self.path == "/utf8mb4":
                 self._send({"Content-Type": "text/html; charset=utf8mb4"}, HTML)
             elif self.path == "/no-ctype":
@@ -152,6 +158,35 @@ def test_unknown_charset_falls_back_to_utf8(server):
 )
 def test_charset_missing_from_header_is_taken_from_the_page(server, path, expected):
     assert expected in get(server, path).text
+
+
+@pytest.mark.parametrize("path", ["/punycode-header", "/punycode-meta"])
+def test_hostile_charset_is_decoded_as_utf8_quickly(server, path):
+    started = time.monotonic()
+    resp = get(server, path)
+    assert time.monotonic() - started < 1.0
+    assert "aaaa-aaaa" in resp.text
+
+
+@pytest.mark.parametrize(
+    "label,expected",
+    [
+        ("utf-8", "utf-8"),
+        ("UTF8", "utf-8"),
+        ("iso-8859-1", "iso8859-1"),
+        ("windows-1252", "cp1252"),
+        ("shift_jis", "shift_jis"),
+        ("punycode", None),
+        ("idna", None),
+        ("utf-7", None),
+        ("unicode_escape", None),
+        ("rot13", None),
+        ("no-such-charset", None),
+        (None, None),
+    ],
+)
+def test_only_web_charsets_are_used(label, expected):
+    assert safe_codec(label) == expected
 
 
 def test_missing_content_type_does_not_crash(server):

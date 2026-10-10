@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 import ipaddress
 import re
 import socket
@@ -26,6 +27,14 @@ MAX_REDIRECTS = 5
 MAX_RETRY_AFTER_SECONDS = 60.0
 MAX_CRAWL_DELAY_SECONDS = 60.0
 RETRY_AFTER_RE = re.compile(r"[0-9]{1,5}")
+# Charsets a web page may declare. Anything else (punycode, idna, utf-7, unicode_escape, ...)
+# decodes as UTF-8: some text codecs are quadratic on hostile input, and the deadline above
+# only bounds the download, not the decoding.
+WEB_CODECS = frozenset({
+    "utf-8", "utf-16", "utf-16-le", "utf-16-be", "ascii", "iso8859-1", "iso8859-2", "iso8859-15",
+    "cp1250", "cp1251", "cp1252", "cp1254", "koi8-r", "koi8-u", "shift_jis", "euc_jp",
+    "iso2022_jp", "gb2312", "gbk", "gb18030", "big5", "euc_kr",
+})
 
 
 class TransportError(Exception):
@@ -147,10 +156,21 @@ def declared_charset(content_type: str | None, body: bytes) -> str | None:
     return EncodingDetector.find_declared_encoding(body[:4096], is_html=True)
 
 
-def decode_body(body: bytes, encoding: str | None) -> str:
-    """Decode with the declared charset; unknown or broken charsets fall back to UTF-8."""
+def safe_codec(label: str | None) -> str | None:
+    """The codec for a declared charset if it is a known web encoding, else None (UTF-8)."""
+    if not label:
+        return None
     try:
-        return body.decode(encoding or "utf-8", errors="replace")
+        name = codecs.lookup(label.strip()).name
+    except LookupError:
+        return None
+    return name if name in WEB_CODECS else None
+
+
+def decode_body(body: bytes, encoding: str | None) -> str:
+    """Decode with the declared charset; unknown, non-web or broken charsets fall back to UTF-8."""
+    try:
+        return body.decode(safe_codec(encoding) or "utf-8", errors="replace")
     except (LookupError, UnicodeError):
         return body.decode("utf-8", errors="replace")
 
