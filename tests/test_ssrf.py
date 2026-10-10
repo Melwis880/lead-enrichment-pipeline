@@ -239,3 +239,39 @@ def test_backslash_host_link_is_not_treated_as_a_same_site_page():
     assert "169.254.169.254" in hosts and "shop.example" in hosts
     picked = discover_pages(page, "shop.example", 3)
     assert picked == ["https://shop.example/contact"]
+
+
+def test_robots_txt_is_checked_for_the_path_that_is_really_requested():
+    # /x/%2e%2e/private/ prepares to /x/../private/ and, prepared again on send, to /private/.
+    robots = "User-agent: *\nDisallow: /private/\n"
+    transport = Recorder(
+        {"https://shop.example/robots.txt": (200, robots, {"Content-Type": "text/plain"})}
+    )
+    result = guarded_fetcher(transport, PUBLIC).fetch("https://shop.example/x/%2e%2e/private/s")
+    assert result.skipped and "blocked by" in result.skipped
+    assert not any("private" in c for c in transport.calls)
+
+
+TRICKY_URLS = [
+    "https://shop.example/x/%2e%2e/private/secret",
+    "https://shop.example/a/./b/../../c",
+    "http://a%20b@[fe80::1%25eth0]:80/",
+    "http://u%25ser@shop.example/%252e%252e/",
+    "https://straße.example/über uns",
+    "http://169.254.169.254\\@shop.example/../latest/",
+    "HTTP://Shop.Example:443/A?b=%2F#c",
+]
+
+
+@pytest.mark.parametrize("url", TRICKY_URLS)
+def test_canonical_url_is_a_fixed_point_or_rejected(url):
+    import requests
+
+    from lead_enrich.urls import InvalidURLError, canonical_url
+
+    try:
+        once = canonical_url(url)
+    except InvalidURLError:
+        return
+    assert canonical_url(once) == once
+    assert requests.Request("GET", once).prepare().url == once  # what requests really sends
