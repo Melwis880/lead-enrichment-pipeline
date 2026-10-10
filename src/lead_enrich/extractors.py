@@ -11,6 +11,7 @@ from typing import Any, Protocol
 import anthropic
 
 from .config import LLMSettings
+from .parser import no_tags
 from .schema import EXTRACTION_JSON_SCHEMA
 
 PROMPT_VERSION = "v1"
@@ -59,7 +60,8 @@ class Extractor(Protocol):
 
 
 def user_message(company: str, domain: str, document: str) -> str:
-    return f"Company: {company}\nDomain: {domain}\n\n<pages>\n{document}\n</pages>"
+    # The company name comes from the input CSV (often a bought or shared list): escaped too.
+    return f"Company: {no_tags(company)}\nDomain: {domain}\n\n<pages>\n{document}\n</pages>"
 
 
 class ClaudeExtractor:
