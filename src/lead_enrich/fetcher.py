@@ -108,6 +108,9 @@ class RequestsTransport:
         connect_timeout_seconds: float = 5.0,
     ) -> None:
         self.session = requests.Session()
+        # Ignore the environment: no ~/.netrc credentials (a crafted URL could get them sent to
+        # another host), no proxy or CA-bundle variables. The tool needs none of them.
+        self.session.trust_env = False
         self.max_bytes = max_bytes
         self.deadline_seconds = deadline_seconds
         self.connect_timeout_seconds = connect_timeout_seconds

@@ -64,6 +64,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"Content-Type": "text/html"}, HTML)
             elif self.path == "/no-charset-meta-cp1252":
                 self._send({"Content-Type": "text/html"}, META_CP1252.encode("cp1252"))
+            elif self.path == "/echo-auth":
+                auth = self.headers.get("Authorization", "none")
+                self._send({"Content-Type": "text/plain"}, f"auth={auth}".encode())
             elif self.path == "/punycode-header":
                 self._send({"Content-Type": "text/html; charset=punycode"}, PUNY_BOMB)
             elif self.path == "/punycode-meta":
@@ -301,3 +304,11 @@ def test_certificate_verification_failure_is_its_own_kind():
 def test_other_tls_failures_stay_tls():
     handshake = ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number")
     assert tls_error_kind(_wrapped_ssl_error(handshake)) == "tls"
+
+
+def test_netrc_credentials_are_never_sent(server, tmp_path, monkeypatch):
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine 127.0.0.1 login dummy-user password DUMMY-TOKEN\n")
+    netrc.chmod(0o600)
+    monkeypatch.setenv("NETRC", str(netrc))
+    assert get(server, "/echo-auth").text == "auth=none"
