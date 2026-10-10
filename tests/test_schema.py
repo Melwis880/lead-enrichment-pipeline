@@ -132,3 +132,31 @@ def test_malformed_field_does_not_sink_the_record():
 def test_unusable_output_raises(raw):
     with pytest.raises(ExtractionError):
         run(raw)
+
+
+@pytest.mark.parametrize(
+    "email,ok",
+    [
+        ("hello@bakery.example", True),
+        ("info@mail.bakery.example", True),  # subdomain of the company domain
+        ("info@otherbakery.example", False),  # look-alike, not a subdomain
+        ("info@bakery.example.evil.example", False),
+        ("info@gmail.example", False),
+    ],
+)
+def test_contact_email_must_be_on_company_domain(email, ok):
+    ev = evidence()
+    ev.generic_emails.add(email)  # present on the page, so only the domain rule decides
+    result = validate_extraction(mutate("contact_email.value", email), ev, 0.6)
+    if ok:
+        assert result.get("contact_email") == email
+    else:
+        assert result.get("contact_email") is None
+        assert "contact_email:off_domain_email" in result.flags()
+
+
+def test_internationalised_company_domain_matches_punycode_email():
+    ev = Evidence(domain="müller.example", generic_emails={"info@xn--mller-kva.example"})
+    data = mutate("contact_email.value", "info@xn--mller-kva.example")
+    data["contact_form_url"]["value"] = None
+    assert validate_extraction(data, ev, 0.6).get("contact_email") == "info@xn--mller-kva.example"

@@ -144,6 +144,21 @@ def _short(raw: Any, limit: int = MAX_SHORT) -> str | None:
     return cleaned[:limit] or None
 
 
+def _ascii_domain(domain: str) -> str:
+    domain = domain.strip().lower().rstrip(".")
+    try:
+        return domain.encode("idna").decode("ascii")
+    except UnicodeError:
+        return domain
+
+
+def on_company_domain(email: str, company_domain: str) -> bool:
+    """True if the address is at the company's domain or one of its subdomains."""
+    domain = _ascii_domain(email.rsplit("@", 1)[-1])
+    company = _ascii_domain(normalize_domain(company_domain))
+    return bool(company) and (domain == company or domain.endswith("." + company))
+
+
 def _check_field(name: str, raw: Any, evidence: Evidence) -> FieldResult:
     """Validate one field's value. Returns a FieldResult with value or flag set."""
     if not isinstance(raw, dict):
@@ -196,6 +211,8 @@ def _check_field(name: str, raw: Any, evidence: Evidence) -> FieldResult:
                 result.flag = "invalid_email"
             elif not is_generic_email(email):
                 result.flag = "personal_email_rejected"
+            elif not on_company_domain(email, evidence.domain):
+                result.flag = "off_domain_email"
             elif email not in evidence.generic_emails:
                 result.flag = "not_found_in_source"
             else:

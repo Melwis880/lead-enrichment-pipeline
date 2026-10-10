@@ -106,14 +106,16 @@ quoting numbers.
 
 Fields below `validation.min_confidence` (default 0.6) are blanked and listed in `flags`, for
 example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
-`personal_email_rejected`, `not_found_in_source` (email not on the pages), `off_site_url`,
+`personal_email_rejected`, `off_domain_email` (not on the company's domain or a subdomain),
+`not_found_in_source` (email not on the pages), `off_site_url`,
 `no_form_found_at_url`, `invalid_country_code`, `too_long`, `missing_from_output`.
 
 ## Compliance (GDPR-aware design)
 
 - **Only public business information.** The schema has no field that can hold a person. Only
-  role-based mailboxes (`info@`, `hello@`, `contact@` ... fixed allowlist) or a contact form URL
-  are output, and only if they literally appear on the company's own pages.
+  role-based mailboxes (`info@`, `hello@`, `contact@` ... fixed allowlist) on the company's own
+  domain (or a subdomain) or a contact form URL are output, and only if they literally appear on
+  the company's own pages.
 - **Data minimisation before processing.** Every non-role email address is replaced with
   `[personal email removed]` before page text is sent to the LLM or cached. This includes
   plus-addressed role boxes (`sales+jane.smith@`), internationalised addresses (`jane@müller.de`)
