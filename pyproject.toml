@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10", "ruff>=0.6,<1"]
+dev = ["pytest>=8,<10", "ruff==0.17.0"]  # ruff pinned: CI and local must format alike
 
 [project.scripts]
 enrich = "lead_enrich.cli:main"
