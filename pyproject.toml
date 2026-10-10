@@ -15,8 +15,11 @@ dependencies = [
     "protego>=0.4,<1",
     "pydantic>=2.6,<3",
     "PyYAML>=6.0,<7",
-    "requests>=2.31,<3",
-    "urllib3>=2.2,<3",  # used directly: HTTPResponse.read1 for deadline-bounded reads
+    "requests>=2.32.4,<3",  # 2.32.4: netrc credential leak fix (CVE-2024-47081)
+    # used directly: HTTPResponse.read1 for deadline-bounded reads. 2.6.3: decompression is
+    # bounded per read and nested Content-Encoding chains are limited (CVE-2025-66471/66418),
+    # which the byte cap against gzip bombs relies on.
+    "urllib3>=2.6.3,<3",
 ]
 
 [project.optional-dependencies]
