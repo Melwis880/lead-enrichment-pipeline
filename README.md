@@ -186,8 +186,12 @@ Every website, header and model answer is treated as untrusted input.
 - **Demo data is invented.** The 13 companies, their websites and the mock LLM answers were written
   by hand for this repo (on reserved `.example` domains). Mock answers include deliberately bad
   fields to exercise validation. They are not real model outputs.
-- **Real-mode numbers are pending.** The build environment had no API key and no outbound web
-  access, so no real-LLM run has been measured yet. See CASE_STUDY.md.
+- **Real mode was not run.** No API key was available for this project, so the Claude API was
+  never actually called: every demo result comes from hand-written mock answers. The real-mode
+  code path is tested only against a fake client. AI cost and latency figures are **estimates**
+  (dry-run formula and an assumed latency), and extraction quality (how accurately Claude fills
+  each field) is **not measured**. The validation results show that bad fields are caught, not
+  how often a real model produces them. See CASE_STUDY.md.
 
 ## Automation (optional)
 

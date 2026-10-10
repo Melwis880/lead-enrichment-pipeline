@@ -6,8 +6,9 @@ where they came from.
 ## Environment notes
 - Build ran in a sandboxed cloud container: outbound HTTP to arbitrary websites is blocked
   (proxy returns `403` on `CONNECT`), and no `ANTHROPIC_API_KEY` is configured. So everything was
-  built and tested against saved HTML fixtures and mock LLM responses. Real-mode numbers are
-  marked "pending" until someone runs it with a key.
+  built and tested against saved HTML fixtures and mock LLM responses. On 2026-10-10 the
+  real-mode run was skipped by decision (no API key will be available): Claude was never called,
+  and AI cost/latency/quality figures are estimates or unmeasured.
 
 ## Key decisions (see DECISIONS.md for the full list)
 - Python with a small, readable dependency set instead of a crawling framework.
@@ -92,7 +93,8 @@ Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sit
 - Demo page text sent to the LLM: 249-1,608 characters per company, average 1,108.
 - Dry-run cost ceiling (estimate, not measured): <= $0.62 per 100 companies at full 12,000-char
   input, ~450 output tokens, $1 / $5 per million tokens.
-- Real LLM run: **pending** (no API key in the build environment).
+- Real LLM run: **not run** (skipped by decision; no API key available). No measured AI
+  tokens, cost, latency or extraction accuracy exist for this project.
 - Test suite: 178 tests after the security fixes (92 before), offline, passing on Python 3.11,
   3.12 and 3.13.
 

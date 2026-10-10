@@ -205,3 +205,12 @@ One entry per architecture or security decision, written when the decision is ma
   page) so the HTTP fallback can run; before, such sites were mislabelled `skipped_robots`.
 - **CI and dependencies:** `persist-credentials: false` on checkout; upper bounds on every
   dependency. SHA-pinning actions and a lockfile were explicitly left out of scope for now.
+
+## 2026-10-10 - Ship without a real-mode run
+- **Decision:** The real-mode run (live Claude API) is skipped; the PR is marked ready for review
+  without it. All AI cost and latency figures stay labelled as estimates, and extraction quality
+  is stated as not measured.
+- **Alternatives:** Keep the PR in draft until a key is available (none will be); report the
+  mock run's numbers as if they were real (dishonest).
+- **Why:** No API key will be available. The brief forbids invented results, so the docs say
+  exactly what was and was not measured.

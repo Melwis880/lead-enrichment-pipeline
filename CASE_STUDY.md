@@ -41,7 +41,9 @@ Architecture diagram and configuration: [README.md](README.md). Design trade-off
 
 **There is no client deployment yet, so there are no client results to report.** What exists is
 a working pipeline and a reproducible demo on 13 invented local businesses (saved web pages, mock
-AI answers written by hand). On that demo:
+AI answers written by hand). **Real mode was not run:** no API key was available, so Claude was
+never called, and all AI cost, latency and quality figures below are estimates or untested. On
+that demo:
 
 - 11 of 13 companies were enriched and ranked (5 A, 3 B, 2 C, 1 "review"). One site was skipped
   because its robots.txt forbids crawling, one failed because the server returned 503 on every
@@ -51,6 +53,9 @@ AI answers written by hand). On that demo:
   and a low-confidence industry. All four were blanked and flagged, not passed on.
 - An accountancy firm (a likely competitor or partner, not a buyer) ranked C despite being local
   and small, and the CSV says why: `industry accounting_and_finance (-40)`.
+- These results test the pipeline around the model (fetching, validation, scoring, reporting).
+  They say nothing about how accurately Claude extracts industry, size or location from real
+  websites: that has not been measured.
 
 What a pilot with a real team should measure: minutes saved per 100 leads (time-tracked, both
 ways), field accuracy on a 20-company sample checked by hand, and whether tier A leads convert
@@ -60,9 +65,10 @@ better than tier C after a month.
 
 | | By hand | Pipeline |
 |---|---|---|
-| Time per company | ~6 min (**estimate**, see assumption below) | 0.007 s compute + ~5.5 s polite waiting (**measured**, mock demo) + LLM latency (**pending** real run) |
+| Time per company | ~6 min (**estimate**, see assumption below) | 0.007 s compute + ~5.5 s polite waiting (**measured**, mock demo) + LLM latency (**not measured**: real mode not run; ~2 s assumed) |
 | Time per 100 companies | ~10 hours (**estimate**) | ~15-20 minutes unattended (**estimate**: about 4 requests per company at >= 2 s each, measured on the demo, plus an assumed ~2 s LLM call) |
-| AI cost per 100 companies | none | **Pending** real run. Dry-run upper bound: <= $0.62 (**estimate**: full 12,000-character input, ~450 output tokens, $1/$5 per million tokens) |
+| AI cost per 100 companies | none | **Not measured** (real mode not run). **Estimate**: <= $0.62, from the dry-run formula (full 12,000-character input at ~4 characters per token, ~1,000 prompt tokens, ~450 output tokens, $1/$5 per million tokens) |
+| Extraction quality | Depends on who looks | **Not measured** (real mode not run). Mock answers only show that bad fields are caught and flagged |
 | Consistency | Depends on who looks | Same rules every time; every score has written reasons |
 | Personal data | Whatever the person copies | Personal emails removed before AI; only role mailboxes or form URLs in output |
 
@@ -78,9 +84,9 @@ from the actual team before quoting it.
 - 47 HTTP requests including robots.txt and 2 retries; 1 site blocked by robots.txt.
 - Politeness delay a live run would have spent waiting: 70.9 s (computed by the rate limiter,
   not slept, because the pages were local files). That is about 5.5 s per company.
-- AI tokens and cost: 0 (mock mode). Real numbers are pending.
+- AI tokens and cost: 0 (mock mode). Real mode was not run, so there are no measured AI numbers.
 
-**To fill in the pending numbers:** put an API key in `.env` and run
+**How to measure them later, if a key becomes available:** put an API key in `.env` and run
 `enrich run input/companies.csv --html-fixtures fixtures/sites`. That sends the same 13 saved
 demo sites to Claude and writes measured tokens, latency and cost to `output/run_stats.json`.
 Note that the demo pages are short (about 1,100 characters per company on average), so real

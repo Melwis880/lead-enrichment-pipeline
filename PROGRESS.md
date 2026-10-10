@@ -48,10 +48,11 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 
 ## Phase 9 - Definition of done
 - [x] Mock-mode demo run end to end
-- [ ] Real-mode demo run (needs `ANTHROPIC_API_KEY`; blocked in the build environment)
+- [ ] Real-mode demo run: **not done, skipped by decision (2026-10-10)**. No API key will be
+      available; cost and quality figures are estimates (see README Limitations, CASE_STUDY)
 - [x] CI green (GitHub Actions on PR #1: Python 3.11, 3.12, 3.13)
 - [x] No secrets in history (checked `git log -p` for key patterns; only `.env.example` tracked)
-- [x] PR opened with summary (draft until the real-mode run is done)
+- [x] PR opened with summary; marked ready for review on 2026-10-10 without the real-mode run
 
 ## Phase 10 - Security audit fixes (2026-10-10)
 - [x] 1. Robustness: body deadline + byte cap, safe decoding, strict Retry-After, per-company
@@ -84,12 +85,13 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 
 **Not done**
-- Real-mode run (real Claude API). The build environment has no API key and blocks outbound
-  web traffic, so real latency, tokens and cost are not measured. CASE_STUDY marks them pending.
+- Real-mode run (real Claude API): **skipped by decision** on 2026-10-10 because no API key will
+  be available. Claude was never called; AI latency, tokens and cost are estimates, and
+  extraction quality is not measured. README Limitations and CASE_STUDY say so.
 - n8n workflow not yet imported into a live n8n instance.
 
 **Next steps**
-1. `cp .env.example .env`, add `ANTHROPIC_API_KEY`, run
+1. Only if an API key becomes available: `cp .env.example .env`, add `ANTHROPIC_API_KEY`, run
    `enrich run input/companies.csv --html-fixtures fixtures/sites`; copy the measured numbers
    from `output/run_stats.json` into CASE_STUDY.md and BUILD_LOG.md, and compare the real
    extraction against the hand-written mock answers.
