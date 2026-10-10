@@ -141,6 +141,7 @@ def write_stats(records: list[LeadRecord], stats: RunStats, path: Path) -> dict[
         "mode": stats.mode,
         "model": stats.model,
         "input_warnings": stats.input_warnings,
+        "interrupted": stats.interrupted,
         **metrics,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +165,11 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
         f"- Model: `{stats.model}`",
         f"- Ideal customer profile: {icp.name}",
         "",
+        *(
+            [f"> **{_md(stats.interrupted)}** Results below are partial.", ""]
+            if stats.interrupted
+            else []
+        ),
         "## Results",
         "",
         "| Status | Companies |",

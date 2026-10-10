@@ -133,23 +133,38 @@ def run(
         input_warnings=warnings,
     )
     click.echo(f"Enriching {len(companies)} companies - {mode}")
+    records: list[LeadRecord] = []
+    fatal: FatalExtractorError | None = None
+    interrupted = False
     try:
-        records = run_pipeline(companies, fetcher, extractor, settings, icp, stats, _progress)
+        run_pipeline(companies, fetcher, extractor, settings, icp, stats, _progress, records)
     except FatalExtractorError as exc:
-        raise click.ClickException(str(exc)) from exc
+        fatal = exc
+        stats.interrupted = f"Stopped by a configuration error: {exc}"
+    except KeyboardInterrupt:
+        interrupted = True
+        stats.interrupted = "Interrupted by the user"
+    if stats.interrupted:
+        stats.interrupted += f" after {len(records)} of {len(companies)} companies."
 
-    csv_path = output_dir / "enriched.csv"
-    summary_path = output_dir / "summary.md"
-    stats_path = output_dir / "run_stats.json"
-    write_csv(records, csv_path)
-    write_summary(records, stats, icp, summary_path)
-    payload = write_stats(records, stats, stats_path)
-    click.echo(
-        f"\nDone in {payload['wall_time_s']} s. Tiers: {payload['tier_counts']}. "
-        f"LLM cost: ${payload['cost_usd']:.4f}"
-    )
-    click.echo(f"Wrote {csv_path}, {summary_path}, {stats_path}")
-    if payload["status_counts"].get("ok", 0) == 0:
+    if records:  # never lose finished companies, even when the run stops early
+        csv_path = output_dir / "enriched.csv"
+        summary_path = output_dir / "summary.md"
+        stats_path = output_dir / "run_stats.json"
+        write_csv(records, csv_path)
+        write_summary(records, stats, icp, summary_path)
+        payload = write_stats(records, stats, stats_path)
+        click.echo(
+            f"\nDone in {payload['wall_time_s']} s. Tiers: {payload['tier_counts']}. "
+            f"LLM cost: ${payload['cost_usd']:.4f}"
+        )
+        click.echo(f"Wrote {csv_path}, {summary_path}, {stats_path}")
+    if fatal is not None:
+        raise click.ClickException(str(fatal)) from fatal
+    if interrupted:
+        click.secho(stats.interrupted, fg="yellow", err=True)
+        sys.exit(130)
+    if not any(r.status == "ok" for r in records):
         sys.exit(1)
 
 

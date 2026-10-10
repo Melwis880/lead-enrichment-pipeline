@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .config import Settings
-from .extractors import Extractor
+from .extractors import Extractor, FatalExtractorError
 from .fetcher import FetchResult, PoliteFetcher
 from .parser import ParsedPage, build_llm_document, discover_pages, normalize_domain, parse_html
 from .schema import Enrichment, Evidence, ExtractionError, validate_extraction
@@ -33,7 +33,7 @@ class Company:
 @dataclass
 class LeadRecord:
     company: Company
-    status: str = "ok"  # ok | skipped_robots | fetch_failed | extraction_failed
+    status: str = "ok"  # ok | skipped_robots | fetch_failed | extraction_failed | internal_error
     error: str | None = None
     pages: list[str] = field(default_factory=list)
     enrichment: Enrichment | None = None
@@ -58,6 +58,7 @@ class RunStats:
     wall_time_s: float = 0.0
     fetch: dict[str, float] = field(default_factory=dict)
     input_warnings: list[str] = field(default_factory=list)
+    interrupted: str | None = None  # why the run stopped early, if it did
 
 
 def read_companies(path: str | Path) -> tuple[list[Company], list[str]]:
@@ -166,14 +167,28 @@ def run_pipeline(
     icp: ICP,
     stats: RunStats,
     progress: Callable[[int, int, LeadRecord], None] | None = None,
+    records: list[LeadRecord] | None = None,
 ) -> list[LeadRecord]:
+    """Enrich every company. Results are appended to ``records`` as they finish, so a caller
+    that passes its own list keeps the finished companies if the run is interrupted."""
+    records = [] if records is None else records
     started = time.monotonic()
-    records = []
-    for i, company in enumerate(companies, start=1):
-        record = enrich_company(company, fetcher, extractor, settings, icp)
-        records.append(record)
-        if progress:
-            progress(i, len(companies), record)
-    stats.wall_time_s = time.monotonic() - started
-    stats.fetch = dict(fetcher.stats)
+    try:
+        for i, company in enumerate(companies, start=1):
+            try:
+                record = enrich_company(company, fetcher, extractor, settings, icp)
+            except FatalExtractorError:
+                raise
+            except Exception as exc:  # one hostile or odd site must never sink the batch
+                record = LeadRecord(
+                    company=company,
+                    status="internal_error",
+                    error=f"{type(exc).__name__}: {str(exc)[:200]}",
+                )
+            records.append(record)
+            if progress:
+                progress(i, len(companies), record)
+    finally:
+        stats.wall_time_s = time.monotonic() - started
+        stats.fetch = dict(fetcher.stats)
     return records

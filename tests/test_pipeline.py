@@ -239,3 +239,74 @@ def test_timeout_site_is_fetch_failed(tmp_path):
 )
 def test_csv_formula_injection_is_neutralised(value, expected):
     assert safe_cell(value) == expected
+
+
+def test_unexpected_exception_fails_one_company_not_the_batch():
+    from lead_enrich.pipeline import RunStats, run_pipeline
+
+    class Exploding(MockExtractor):
+        def extract(self, company, domain, document):
+            if domain == "cliftonpaws.example":
+                raise RuntimeError("parser bug on hostile page")
+            return super().extract(company, domain, document)
+
+    settings = Settings()
+    companies, _ = read_companies(INPUT)
+    stats = RunStats(input_path="x", mode="test", model="none")
+    records = run_pipeline(
+        companies,
+        make_fetcher(settings),
+        Exploding(ROOT / "fixtures" / "llm"),
+        settings,
+        load_icp(ROOT / "config" / "icp.yaml"),
+        stats,
+    )
+    assert len(records) == 13
+    bad = next(r for r in records if r.company.domain == "cliftonpaws.example")
+    assert bad.status == "internal_error" and "RuntimeError" in bad.error
+    assert sum(r.status == "ok" for r in records) == 10
+
+
+def test_fatal_error_still_aborts_the_run():
+    from lead_enrich.extractors import FatalExtractorError
+    from lead_enrich.pipeline import RunStats, run_pipeline
+
+    class BadKey:
+        label = "bad key"
+
+        def extract(self, *a):
+            raise FatalExtractorError("bad key")
+
+    settings = Settings()
+    collected: list = []
+    with pytest.raises(FatalExtractorError):
+        run_pipeline(
+            [Company("Clifton Paws", "cliftonpaws.example")],
+            make_fetcher(settings),
+            BadKey(),
+            settings,
+            load_icp(ROOT / "config" / "icp.yaml"),
+            RunStats(input_path="x", mode="test", model="none"),
+            records=collected,
+        )
+
+
+def test_interrupted_run_still_writes_partial_outputs(in_tmp, monkeypatch):
+    calls = {"n": 0}
+    original = MockExtractor.extract
+
+    def interrupt_third(self, company, domain, document):
+        calls["n"] += 1
+        if calls["n"] == 3:
+            raise KeyboardInterrupt
+        return original(self, company, domain, document)
+
+    monkeypatch.setattr(MockExtractor, "extract", interrupt_third)
+    result = run_cli(in_tmp)
+    assert result.exit_code == 130
+    rows = read_rows(in_tmp)
+    assert len(rows) == 2
+    summary = (in_tmp / "out" / "summary.md").read_text()
+    assert "Interrupted" in summary
+    stats = json.loads((in_tmp / "out" / "run_stats.json").read_text())
+    assert stats["interrupted"]
