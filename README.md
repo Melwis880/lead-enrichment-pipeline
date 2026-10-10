@@ -130,10 +130,10 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
 - **What is stored on disk.** Raw HTML is never written to disk. The page cache
   (`cache/http`, 72 h TTL; robots.txt 24 h) holds only the *parsed* page: visible text with personal emails
   already removed, title, links and role mailboxes; plus robots.txt files. The LLM cache
-  (`cache/llm`) holds only the *validated* result per company (accepted values and flags), never
-  the model's raw answer, so a rejected personal address is not kept; validation also removes
-  personal email addresses from free-text fields. Entries written by versions before this change
-  are no longer read; delete `cache/llm` to remove them. Cache folders are created owner-only
+  (`cache/llm`, 30-day TTL) holds only the *validated* result per company (accepted values and
+  flags), never the model's raw answer, so a rejected personal address is not kept; validation
+  also removes personal email addresses from free-text fields. Every run first deletes expired
+  entries and raw answers left by older versions. Cache folders are created owner-only
   (`0700`, files `0600`). Names in running text can still be in the cached text (see Limitations);
   delete `cache/` to erase everything, e.g. after a run or on an objection.
 - **No secrets in the repo.** Keys come from the environment or a git-ignored `.env`;
@@ -154,11 +154,13 @@ Every website, header and model answer is treated as untrusted input.
 - **One bad site cannot stall or crash the batch.** Each response body is read against a byte
   cap (after decompression, so gzip bombs are capped too) and an overall deadline
   (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. A charset missing from
-  the `Content-Type` header is read from the page's `<meta>` tag; undeclared or unknown charsets
-  fall back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
+  the `Content-Type` header is read from the page's `<meta>` tag; undeclared, unknown or non-web
+  charsets (e.g. `punycode`, `utf-7`, whose decoders can be made very slow) fall back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
   marks that company `internal_error` and the run continues.
-- **Plain HTTP is not trusted for contact data.** If the HTTPS handshake fails or the HTTPS
-  connection is refused, the homepage is tried once over plain HTTP (never after a timeout). A
+- **Plain HTTP is not trusted for contact data.** If the site speaks no TLS on 443 (broken
+  handshake) or the HTTPS connection is refused, the homepage is tried once over plain HTTP
+  (never after a timeout, and never after a failed certificate check, which is what an attacker
+  in the middle would cause). A
   site read over plain HTTP is marked `insecure_transport`, and no contact email or form URL from
   those pages is accepted (`insecure_source` flag): it could have been altered in transit. If a
   run is interrupted (Ctrl-C) or stopped by a configuration error, the companies already finished
@@ -170,9 +172,14 @@ Every website, header and model answer is treated as untrusted input.
 
 ## Limitations
 
-- **Names in free text are not redacted.** "Email Priya at ..." loses the address but keeps
-  "Priya" in the text sent to the LLM. Mitigated (no person fields, prompt forbids names, tests
-  check outputs), not eliminated. See DECISIONS.md.
+- **Names and phone numbers in free text are not redacted.** "Email Priya at ..." loses the
+  address but keeps "Priya" in the text sent to the LLM, and a sentence such as "owner Jane Smith,
+  07700 900123" keeps both the name and the number, in the cached page text and possibly in the
+  description. Only email addresses are removed. Mitigated (no person fields, prompt forbids
+  names, tests check outputs, LLM cache expires after 30 days), not eliminated. See DECISIONS.md.
+- **A cached page is used without re-checking robots.txt.** If a site starts disallowing us,
+  pages already cached (up to 72 h) are still used. No new request is made, so this does not break
+  RFC 9309, but the content is used for up to 3 more days.
 - **DNS rebinding is not fully closed.** The SSRF check resolves the host, then `requests`
   resolves it again to connect. A hostile DNS server could answer with a public address the
   first time and a private one the second. Closing this needs connecting to the checked IP

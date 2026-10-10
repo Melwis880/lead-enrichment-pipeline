@@ -16,17 +16,18 @@ DEFAULT_USER_AGENT = (
 
 class FetchSettings(BaseModel):
     user_agent: str = DEFAULT_USER_AGENT
-    timeout_seconds: float = 10.0  # per read
-    connect_timeout_seconds: float = 5.0  # capped at timeout_seconds
-    deadline_seconds: float = 20.0  # whole response, not per read
+    # A zero or negative timeout makes requests raise for every company, so they must be > 0.
+    timeout_seconds: float = Field(default=10.0, gt=0)  # per read
+    connect_timeout_seconds: float = Field(default=5.0, gt=0)  # capped at timeout_seconds
+    deadline_seconds: float = Field(default=20.0, gt=0)  # whole response, not per read
     max_retries: int = Field(default=2, ge=0, le=5)
     backoff_base_seconds: float = 1.0
     min_delay_seconds: float = Field(default=2.0, ge=0.5)
     max_pages_per_company: int = Field(default=3, ge=1, le=5)
     max_page_bytes: int = 2_000_000
     cache_dir: str = "cache/http"
-    cache_ttl_hours: float = 72.0  # parsed pages; keep it below the schedule interval
-    robots_cache_ttl_hours: float = 24.0  # RFC 9309 2.4: at most 24 h
+    cache_ttl_hours: float = Field(default=72.0, gt=0)  # parsed pages; below schedule interval
+    robots_cache_ttl_hours: float = Field(default=24.0, gt=0, le=24)  # RFC 9309 2.4: at most 24 h
 
 
 class ModelPrice(BaseModel):
@@ -40,7 +41,7 @@ class LLMSettings(BaseModel):
     model: str = "claude-haiku-4-5-20251001"
     max_tokens: int = 1024
     max_input_chars: int = 12_000
-    timeout_seconds: float = 60.0
+    timeout_seconds: float = Field(default=60.0, gt=0)
     max_retries: int = 2
     cache_dir: str = "cache/llm"
     # Validated results can still hold names from free text, so they are not kept forever.

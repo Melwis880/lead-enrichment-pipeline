@@ -1,6 +1,9 @@
 import os
 
-from lead_enrich.config import load_dotenv
+import pytest
+from pydantic import ValidationError
+
+from lead_enrich.config import FetchSettings, LLMSettings, load_dotenv
 
 
 def test_dotenv_loads_only_allowlisted_keys(tmp_path, monkeypatch):
@@ -35,3 +38,23 @@ def test_dotenv_never_overrides_existing_environment(tmp_path, monkeypatch):
     env.write_text("ENRICH_MODEL=from-file\n")
     load_dotenv(env)
     assert os.environ["ENRICH_MODEL"] == "from-shell"
+
+
+@pytest.mark.parametrize(
+    "field", ["timeout_seconds", "connect_timeout_seconds", "deadline_seconds", "cache_ttl_hours"]
+)
+@pytest.mark.parametrize("value", [0, -1])
+def test_fetch_timeouts_must_be_positive(field, value):
+    with pytest.raises(ValidationError):
+        FetchSettings(**{field: value})
+
+
+def test_robots_txt_is_never_cached_longer_than_a_day():
+    with pytest.raises(ValidationError):
+        FetchSettings(robots_cache_ttl_hours=48)
+
+
+@pytest.mark.parametrize("field", ["timeout_seconds", "cache_ttl_hours"])
+def test_llm_timeout_and_cache_ttl_must_be_positive(field):
+    with pytest.raises(ValidationError):
+        LLMSettings(**{field: 0})
