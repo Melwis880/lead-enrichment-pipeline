@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -207,6 +208,15 @@ def run(
         sys.exit(1)
 
 
+CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _printable(text: str) -> str:
+    """Site- and input-controlled text with control characters replaced: an ESC sequence in an
+    error message must not be able to reset or rewrite the operator's terminal."""
+    return CONTROL_CHARS_RE.sub("?", text)
+
+
 def _progress(i: int, n: int, record: LeadRecord) -> None:
     if record.score:
         detail = f"tier {record.score.tier}, score {record.score.score}"
@@ -215,7 +225,8 @@ def _progress(i: int, n: int, record: LeadRecord) -> None:
             detail += f", {len(flags)} flagged"
     else:
         detail = f"{record.status}: {record.error}"
-    click.echo(f"[{i}/{n}] {record.company.name} ({record.company.domain}) - {detail}")
+    line = f"{record.company.name} ({record.company.domain}) - {detail}"
+    click.echo(f"[{i}/{n}] {_printable(line)}")
 
 
 def _dollars(cost: float | None) -> str:

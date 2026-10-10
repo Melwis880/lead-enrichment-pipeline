@@ -290,11 +290,11 @@ def check_public_host(url: str, resolver: Callable[..., list] = socket.getaddrin
         try:
             infos = resolver(host, port, proto=socket.IPPROTO_TCP)
         except (OSError, UnicodeError) as exc:  # socket.gaierror is an OSError
-            raise TransportError(f"DNS lookup failed for {host}", kind="dns") from exc
+            raise TransportError(f"DNS lookup failed for {host!r}", kind="dns") from exc
         addresses = [ipaddress.ip_address(str(info[4][0]).split("%", 1)[0]) for info in infos]
     for ip in addresses:
         if not is_public_ip(ip):
-            raise UnsafeHostError(f"{host} resolves to non-public address {ip}")
+            raise UnsafeHostError(f"{host!r} resolves to non-public address {ip}")
 
 
 MEDIA_TYPE_RE = re.compile(r"[\w.+-]+/[\w.+-]+", re.ASCII)

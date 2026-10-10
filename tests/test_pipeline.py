@@ -13,7 +13,7 @@ from lead_enrich.cli import main
 from lead_enrich.config import Settings
 from lead_enrich.extractors import ExtractionResult, MockExtractor
 from lead_enrich.fetcher import FixtureTransport, PoliteFetcher
-from lead_enrich.pipeline import Company, InputError, enrich_company, read_companies
+from lead_enrich.pipeline import Company, InputError, LeadRecord, enrich_company, read_companies
 from lead_enrich.report import safe_cell
 from lead_enrich.scoring import load_icp
 
@@ -565,3 +565,14 @@ def test_llm_cache_entry_that_no_longer_fits_is_a_miss_not_an_error(tmp_path, ba
     assert len(client.calls) == 1
     record_again = run_claude(Settings(), cache, CountingClient())
     assert record_again.llm_cached  # the bad entry was overwritten
+
+
+def test_progress_line_never_prints_control_characters(capsys):
+    from lead_enrich.cli import _progress
+
+    record = LeadRecord(company=Company("Evil\x1bc Ltd", "evil.example"))
+    record.status, record.error = "fetch_failed", "homepage: network error: \x1b]0;pwned\x07"
+    _progress(1, 1, record)
+    out = capsys.readouterr().out
+    assert "\x1b" not in out and "\x07" not in out
+    assert "Evil?c Ltd" in out
