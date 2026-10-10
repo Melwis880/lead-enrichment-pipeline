@@ -1,3 +1,5 @@
+import pytest
+
 from lead_enrich.robots import RobotsPolicy
 
 UA = "LeadEnrichBot/0.1 (+https://example.org)"
@@ -36,3 +38,36 @@ def test_crawl_delay_is_read():
     policy = RobotsPolicy.from_status(200, "User-agent: *\nCrawl-delay: 7\n", UA)
     assert policy.crawl_delay() == 7.0
     assert RobotsPolicy.from_status(404, "", UA).crawl_delay() is None
+
+
+@pytest.mark.parametrize(
+    "robots,allowed,blocked",
+    [
+        (  # longest match wins, not first match
+            "User-agent: *\nAllow: /\nDisallow: /contact\n",
+            ["/", "/about"],
+            ["/contact", "/contact/form"],
+        ),
+        (  # * wildcard
+            "User-agent: *\nDisallow: /*contact\n",
+            ["/", "/about"],
+            ["/contact", "/contact-us", "/about/contact"],
+        ),
+        (  # $ end anchor
+            "User-agent: *\nDisallow: /*.html$\n",
+            ["/", "/about", "/page.htm", "/page.html?x=1"],
+            ["/page.html", "/a/b.html"],
+        ),
+        (  # more specific Allow inside a Disallow
+            "User-agent: *\nDisallow: /shop\nAllow: /shop/about\n",
+            ["/shop/about", "/"],
+            ["/shop", "/shop/cart"],
+        ),
+    ],
+)
+def test_rfc9309_matching(robots, allowed, blocked):
+    policy = RobotsPolicy.from_status(200, robots, UA)
+    for path in allowed:
+        assert policy.allowed("https://a.example" + path), path
+    for path in blocked:
+        assert not policy.allowed("https://a.example" + path), path

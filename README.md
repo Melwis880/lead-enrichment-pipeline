@@ -50,7 +50,7 @@ flowchart LR
 | Module | Responsibility |
 |---|---|
 | `fetcher.py` | Robots check per origin (also on each redirect hop), per-site rate limit, timeouts, retries with backoff for timeouts/429/5xx, `Retry-After`, on-disk cache. Transport is swappable: live (`requests`) or saved HTML fixtures. |
-| `robots.py` | RFC 9309 semantics: 2xx obey, 4xx allow, 5xx/network error disallow everything. `Crawl-delay` honoured. |
+| `robots.py` | RFC 9309 semantics: 2xx obey, 4xx allow, 5xx/network error disallow everything. Rule matching by [protego](https://github.com/scrapy/protego) (longest match, `*` and `$`). `Crawl-delay` honoured. |
 | `parser.py` | Visible text, about/contact page discovery (people/team/careers pages excluded), role-based email detection, personal email redaction, contact-form detection. |
 | `extractors.py` | `ClaudeExtractor` (Anthropic SDK, structured outputs, token usage and cost, LLM response cache) and `MockExtractor` (saved fixtures). |
 | `schema.py` | The JSON schema sent to the model and field-by-field validation that flags instead of guessing. |

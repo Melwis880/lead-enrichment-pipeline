@@ -12,6 +12,7 @@ dependencies = [
     "anthropic>=1.12,<2",
     "beautifulsoup4>=4.12",
     "click>=8.1",
+    "protego>=0.4",
     "pydantic>=2.6",
     "PyYAML>=6.0",
     "requests>=2.31",

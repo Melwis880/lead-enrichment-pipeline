@@ -1,9 +1,10 @@
-"""robots.txt handling following RFC 9309 status-code semantics."""
+"""robots.txt handling following RFC 9309 (status codes via our code, matching via protego)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from urllib.robotparser import RobotFileParser
+
+from protego import Protego
 
 
 @dataclass
@@ -19,12 +20,13 @@ class RobotsPolicy:
     user_agent: str
     mode: str  # "rules" | "allow_all" | "disallow_all"
     reason: str = ""
-    _parser: RobotFileParser | None = field(default=None, repr=False)
+    _parser: Protego | None = field(default=None, repr=False)
 
     @classmethod
     def from_text(cls, text: str, user_agent: str) -> RobotsPolicy:
-        parser = RobotFileParser()
-        parser.parse(text.splitlines())
+        # protego implements RFC 9309 matching: longest match wins, `*` and `$` supported.
+        # (urllib.robotparser only gained this in recent CPython releases, so 3.11 differed.)
+        parser = Protego.parse(text)
         return cls(user_agent=user_agent, mode="rules", reason="robots.txt rules", _parser=parser)
 
     @classmethod
@@ -47,7 +49,7 @@ class RobotsPolicy:
             return True
         if self.mode == "disallow_all" or self._parser is None:
             return False
-        return self._parser.can_fetch(self._token, url)
+        return bool(self._parser.can_fetch(url, self._token))
 
     def crawl_delay(self) -> float | None:
         if self._parser is None:
