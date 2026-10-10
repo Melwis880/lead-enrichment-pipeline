@@ -275,3 +275,26 @@ def test_canonical_url_is_a_fixed_point_or_rejected(url):
         return
     assert canonical_url(once) == once
     assert requests.Request("GET", once).prepare().url == once  # what requests really sends
+
+
+def test_ipv4_compatible_ipv6_address_is_not_public():
+    import ipaddress
+
+    from lead_enrich.fetcher import is_public_ip
+
+    assert not is_public_ip(ipaddress.ip_address("::7f00:1"))  # ::127.0.0.1
+
+
+def test_invalid_port_is_a_clean_block_not_a_crash():
+    with pytest.raises(UnsafeHostError):
+        check_public_host("http://shop.example:99999/", resolver=fake_resolver(PUBLIC))
+
+
+@pytest.mark.parametrize("robots", [False, True])
+def test_unparsable_redirect_target_is_a_clean_block_not_a_crash(robots):
+    bad = {"Location": "http://[127.0.0.1]/"}
+    target = "https://shop.example/robots.txt" if robots else "https://shop.example/"
+    transport = Recorder({target: (302, "", bad)})
+    result = guarded_fetcher(transport, PUBLIC).fetch("https://shop.example/")
+    assert not result.ok
+    assert "127.0.0.1" not in "".join(transport.calls)

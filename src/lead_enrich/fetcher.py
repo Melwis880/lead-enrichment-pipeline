@@ -261,12 +261,15 @@ def _canonical(url: str) -> str:
 
 
 NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+IPV4_COMPATIBLE = ipaddress.ip_network("::/96")  # deprecated ::a.b.c.d form; never a real host
 
 
 def is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Globally routable unicast only. IPv6 forms that embed an IPv4 address (mapped, 6to4,
     NAT64) are judged by the embedded address, so ::ffff:127.0.0.1 is not "public"."""
     if isinstance(ip, ipaddress.IPv6Address):
+        if ip in IPV4_COMPATIBLE:
+            return False
         embedded = ip.ipv4_mapped or ip.sixtofour
         if embedded is None and ip in NAT64_PREFIX:
             embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
@@ -291,7 +294,10 @@ def check_public_host(url: str, resolver: Callable[..., list] = socket.getaddrin
     try:
         addresses = [ipaddress.ip_address(host.split("%", 1)[0])]
     except ValueError:
-        port = parts.port or (443 if parts.scheme == "https" else 80)
+        try:
+            port = parts.port or (443 if parts.scheme == "https" else 80)
+        except ValueError as exc:  # out-of-range or non-numeric port
+            raise UnsafeHostError("invalid port") from exc
         try:
             infos = resolver(host, port, proto=socket.IPPROTO_TCP)
         except (OSError, UnicodeError) as exc:  # socket.gaierror is an OSError
@@ -394,7 +400,10 @@ class PoliteFetcher:
                 return FetchResult(url, current, error=f"network error: {exc}", error_kind=exc.kind)
 
             if resp.status in (301, 302, 303, 307, 308) and resp.headers.get("Location"):
-                current = urljoin(current, resp.headers["Location"])
+                try:
+                    current = urljoin(current, resp.headers["Location"])
+                except ValueError:  # e.g. Location: http://[127.0.0.1]/ (not valid IPv6)
+                    return FetchResult(url, current, error="blocked: invalid redirect")
                 continue
             if resp.status != 200:
                 return FetchResult(url, current, resp.status, error=f"HTTP {resp.status}")
@@ -430,8 +439,9 @@ class PoliteFetcher:
                     status, text = resp.status, resp.text
             except TransportError as exc:
                 status, text, error_kind = None, "", exc.kind
-            except UnsafeHostError as exc:
-                # e.g. robots.txt redirecting to an internal address: stay away from the site
+            except (UnsafeHostError, ValueError) as exc:
+                # e.g. robots.txt redirecting to an internal address or to an unparsable URL:
+                # stay away from the site
                 policy = RobotsPolicy(ua, "disallow_all", f"robots.txt redirect blocked ({exc})")
                 self._robots[origin] = policy
                 return policy
