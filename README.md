@@ -178,6 +178,9 @@ Every website, header and model answer is treated as untrusted input.
   in tier `review` or `extraction_failed`.
 - **Sequential and polite means slow on live sites:** about 3 pages x 2 s per company plus LLM
   latency. Fine for tens to low hundreds of companies, not for tens of thousands.
+- **Keyword points are self-reported.** They come from the company's own website text (via the
+  description and products the model extracts), so a site can inflate its own tier by stuffing
+  words like "invoicing" or "wholesale". The keyword bonus is capped (`keywords.max_points`).
 - **Scoring weights are a starting point** written for the demo scenario, not validated against
   real conversion data.
 - **Demo data is invented.** The 13 companies, their websites and the mock LLM answers were written
