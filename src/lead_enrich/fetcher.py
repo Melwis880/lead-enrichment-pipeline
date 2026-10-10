@@ -220,33 +220,30 @@ class FixtureTransport:
         self.root = Path(root)
         self.calls: list[str] = []
 
-    def _base(self, url: str) -> Path | None:
-        """The fixture path for ``url``, or None if it would leave the fixture folder (a ``..``
-        in a link must not read other files on disk)."""
+    def _base(self, url: str) -> Path:
         parts = urlsplit(url)
         path = parts.path.strip("/") or "index"
         if path == "robots.txt":
-            base = self.root / parts.netloc / "robots"
-        else:
-            base = self.root / parts.netloc / path.removesuffix(".html")
-        root = self.root.resolve()
-        resolved = base.resolve()
-        return base if resolved == root or root in resolved.parents else None
+            return self.root / parts.netloc / "robots"
+        return self.root / parts.netloc / path.removesuffix(".html")
+
+    def _inside(self, file: Path) -> bool:
+        """True if the file really lies inside the fixture folder, after resolving ``..`` and
+        symlinks on the file itself: a link must not read other files on disk."""
+        return file.resolve().is_relative_to(self.root.resolve())
 
     def get(self, url: str, headers: dict[str, str], timeout: float) -> HttpResponse:
         self.calls.append(url)
         base = self._base(url)
-        if base is None:
-            return HttpResponse(url, 404, {"Content-Type": "text/html"}, "Not found")
         status_file = base.with_name(base.name + ".status")
-        if status_file.exists():
+        if status_file.exists() and self._inside(status_file):
             spec = status_file.read_text(encoding="utf-8").strip()
             if spec == "timeout":
                 raise TransportError(f"timeout after {timeout}s", kind="timeout")
             return HttpResponse(url, int(spec), {"Content-Type": "text/html"}, "")
         is_robots = base.name == "robots"
         file = base.with_name(base.name + (".txt" if is_robots else ".html"))
-        if not file.exists():
+        if not file.exists() or not self._inside(file):
             return HttpResponse(url, 404, {"Content-Type": "text/html"}, "Not found")
         ctype = "text/plain" if is_robots else "text/html; charset=utf-8"
         return HttpResponse(url, 200, {"Content-Type": ctype}, file.read_text(encoding="utf-8"))

@@ -325,3 +325,15 @@ def test_fixture_transport_never_reads_outside_its_folder(tmp_path):
     assert transport.get("https://shop.example/", {}, 1).text == "home"
     resp = transport.get("https://shop.example/../../secret.html", {}, 1)
     assert resp.status == 404 and "SECRET" not in resp.text
+
+
+def test_fixture_transport_does_not_follow_a_symlinked_page_out_of_its_folder(tmp_path):
+    from lead_enrich.fetcher import FixtureTransport
+
+    secret = tmp_path / "secret.html"
+    secret.write_text("TOP SECRET", encoding="utf-8")
+    site = tmp_path / "sites" / "shop.example"
+    site.mkdir(parents=True)
+    (site / "about.html").symlink_to(secret)
+    resp = FixtureTransport(tmp_path / "sites").get("https://shop.example/about", {}, 1)
+    assert resp.status == 404 and "SECRET" not in resp.text
