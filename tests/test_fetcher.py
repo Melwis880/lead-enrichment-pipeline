@@ -1,6 +1,7 @@
 import pytest
 
 from lead_enrich.cache import JsonDiskCache
+from lead_enrich.config import Settings
 from lead_enrich.fetcher import HttpResponse, PoliteFetcher, TransportError
 
 
@@ -212,6 +213,60 @@ def test_cache_ttl(tmp_path, ttl, expect_hit):
     cache = JsonDiskCache(tmp_path, ttl_hours=ttl)
     cache.set("k", {"v": 1})
     assert (cache.get("k") is not None) == expect_hit
+
+
+class FakeWallClock:
+    """Stands in for the time module inside lead_enrich.cache (stored-at stamps, age checks)."""
+
+    def __init__(self) -> None:
+        self.now = 1_700_000_000.0
+
+    def time(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def wall(monkeypatch):
+    fake = FakeWallClock()
+    monkeypatch.setattr("lead_enrich.cache.time", fake)
+    return fake
+
+
+def page_run(clock, cache, url="https://a.example/"):
+    """One run of the default settings over one page; returns (result, requested URLs)."""
+    from lead_enrich.pipeline import PageSource
+
+    fetcher, transport = make(Settings().fetch, clock, {url: [(200, "<p>hi</p>")]}, cache)
+    result, _ = PageSource(fetcher, cache).get(url)
+    return result, [u for u, _ in transport.calls]
+
+
+def test_robots_txt_is_read_again_after_24_hours(clock, tmp_path, wall):
+    cache = JsonDiskCache(tmp_path, Settings().fetch.cache_ttl_hours)
+    fetcher, _ = make(Settings().fetch, clock, {}, cache)
+    fetcher.robots_for("https://a.example/")
+    wall.now += 25 * 3600
+    fetcher2, transport2 = make(Settings().fetch, clock, {}, cache)
+    fetcher2.robots_for("https://a.example/")
+    assert [u for u, _ in transport2.calls] == ["https://a.example/robots.txt"]
+
+
+def test_weekly_run_does_not_reuse_last_weeks_pages(clock, tmp_path, wall):
+    # The n8n job fires every Monday at 07:00, so a page cached by last week's run is a few
+    # seconds short of 168 h old when this week's run reads it.
+    cache = JsonDiskCache(tmp_path, Settings().fetch.cache_ttl_hours)
+    page_run(clock, cache)
+    wall.now += 7 * 24 * 3600 - 5
+    result, requested = page_run(clock, cache)
+    assert not result.from_cache and "https://a.example/" in requested
+
+
+def test_rerun_within_three_days_still_uses_the_page_cache(clock, tmp_path, wall):
+    cache = JsonDiskCache(tmp_path, Settings().fetch.cache_ttl_hours)
+    page_run(clock, cache)
+    wall.now += 71 * 3600
+    result, requested = page_run(clock, cache)
+    assert result.from_cache and requested == []
 
 
 @pytest.mark.parametrize("value", ["²", "٣", "1e3", "-5", "123456", " 9x"])

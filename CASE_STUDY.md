@@ -17,7 +17,7 @@ documented way:
 1. **Fetch politely.** For each company, read robots.txt first, then fetch at most three public
    pages: the homepage, an about page and a contact page. The tool identifies itself, waits at
    least 2 seconds between requests to the same site, retries only on temporary errors, and
-   caches the parsed, redacted pages for a week (never the raw HTML). Team and careers pages
+   caches the parsed, redacted pages for three days (never the raw HTML). Team and careers pages
    are skipped on purpose.
 2. **Strip personal data before AI sees it.** Any email address that is not a role mailbox
    (`info@`, `hello@` ...) is replaced with `[personal email removed]`.

@@ -12,7 +12,8 @@ fetch:
   max_pages_per_company: 3    # homepage + about + contact
   max_page_bytes: 2000000
   cache_dir: cache/http
-  cache_ttl_hours: 168        # one week
+  cache_ttl_hours: 72         # parsed pages; keep below how often you run (weekly -> < 168)
+  robots_cache_ttl_hours: 24  # RFC 9309: robots.txt is re-read at least daily
 
 llm:
   model: claude-haiku-4-5-20251001   # override with ENRICH_MODEL

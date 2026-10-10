@@ -19,5 +19,7 @@ instance** (none was available in the build environment). Check node versions af
 4. In "Post summary to Slack", select your Slack credential and channel.
 5. Run once manually, then activate.
 
-The on-disk caches make weekly re-runs cheap: parsed pages come from cache for a week, and
-unchanged page text never triggers a second LLM call.
+Each weekly run re-reads the sites: parsed pages are cached for 72 h (`fetch.cache_ttl_hours`),
+shorter than the week between runs, so the report reflects this week's pages. Keep that TTL
+below the schedule interval if you change either. Re-runs within three days (while tuning
+scoring) come from cache, and unchanged page text never triggers a second LLM call.

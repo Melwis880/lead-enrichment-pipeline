@@ -125,10 +125,10 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
   pages are never fetched. At most 3 pages per company.
 - **Respect for site owners.** robots.txt is always obeyed (no off switch), the User-Agent names
   the bot and links to this repo, at least 2 s between requests per site, `Crawl-delay` and
-  `Retry-After` honoured, sites asking for more than 60 s delay are skipped, pages cached for a
-  week so re-runs do not re-hit sites. Check each site's terms of use before running on it.
+  `Retry-After` honoured, sites asking for more than 60 s delay are skipped, pages cached for 3
+  days (robots.txt for 24 h) so re-runs do not re-hit sites. Check each site's terms of use before running on it.
 - **What is stored on disk.** Raw HTML is never written to disk. The page cache
-  (`cache/http`, one-week TTL) holds only the *parsed* page: visible text with personal emails
+  (`cache/http`, 72 h TTL; robots.txt 24 h) holds only the *parsed* page: visible text with personal emails
   already removed, title, links and role mailboxes; plus robots.txt files. The LLM cache
   (`cache/llm`) holds the model's JSON answers. Cache folders are created owner-only (`0700`,
   files `0600`). Names in running text can still be in the cached text (see Limitations);

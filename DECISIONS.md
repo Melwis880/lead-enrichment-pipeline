@@ -231,3 +231,14 @@ One entry per architecture or security decision, written when the decision is ma
   list. Accepted costs: a site with a one-off connect blip is not retried, and a site whose port
   443 is firewalled while port 80 works is now `fetch_failed` instead of an `insecure_transport`
   row (contact data from such a row was never accepted anyway).
+
+## 2026-10-10 - Cache lifetimes: pages 72 h, robots.txt 24 h
+- **Decision:** Parsed pages are cached for 72 h (`fetch.cache_ttl_hours`), robots.txt for 24 h
+  (`fetch.robots_cache_ttl_hours`, read through `JsonDiskCache.get(max_age_hours=...)`). This
+  replaces the one-week cache in the 2026-10-09 politeness decision.
+- **Alternatives:** Keep 168 h for both; `--no-cache` on scheduled runs (would also drop the LLM
+  cache, so unchanged pages would cost a model call again).
+- **Why:** With a 168 h TTL and the weekly n8n trigger, a page cached at 07:00 last Monday is a
+  few seconds under 168 h old at 07:00 this Monday, so the weekly run could reuse last week's pages
+  and, with identical text, last week's LLM answers. RFC 9309 section 2.4 says a cached robots.txt
+  should not be used for more than 24 h. Re-runs while tuning scoring stay free for three days.

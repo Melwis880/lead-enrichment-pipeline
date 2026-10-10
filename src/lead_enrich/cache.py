@@ -19,7 +19,9 @@ class JsonDiskCache:
         digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
         return self.directory / digest[:2] / f"{digest}.json"
 
-    def get(self, key: str) -> dict[str, Any] | None:
+    def get(self, key: str, max_age_hours: float | None = None) -> dict[str, Any] | None:
+        """Cached value, or None if missing or older than ``max_age_hours`` (default: the
+        cache's own TTL)."""
         path = self._path(key)
         if not path.exists():
             return None
@@ -27,10 +29,8 @@ class JsonDiskCache:
             entry = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return None  # a corrupt entry is treated as a miss and overwritten later
-        if (
-            self.ttl_seconds is not None
-            and time.time() - entry.get("_stored_at", 0) > self.ttl_seconds
-        ):
+        ttl = self.ttl_seconds if max_age_hours is None else max_age_hours * 3600
+        if ttl is not None and time.time() - entry.get("_stored_at", 0) > ttl:
             return None
         return entry.get("value")
 

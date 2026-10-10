@@ -345,7 +345,10 @@ class PoliteFetcher:
             return self._robots[origin]
         robots_url = f"{origin}/robots.txt"
         ua = self.settings.user_agent
-        cached = self.cache.get(f"robots:{origin}") if self.cache is not None else None
+        cached = None
+        if self.cache is not None:
+            max_age = self.settings.robots_cache_ttl_hours  # shorter than the page TTL
+            cached = self.cache.get(f"robots:{origin}", max_age_hours=max_age)
         if cached is not None:
             policy = RobotsPolicy.from_status(cached["status"], cached["text"], ua)
         else:

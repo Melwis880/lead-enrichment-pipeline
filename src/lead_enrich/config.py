@@ -25,7 +25,8 @@ class FetchSettings(BaseModel):
     max_pages_per_company: int = Field(default=3, ge=1, le=5)
     max_page_bytes: int = 2_000_000
     cache_dir: str = "cache/http"
-    cache_ttl_hours: float = 168.0
+    cache_ttl_hours: float = 72.0  # parsed pages; keep it below the schedule interval
+    robots_cache_ttl_hours: float = 24.0  # RFC 9309 2.4: at most 24 h
 
 
 class LLMSettings(BaseModel):
