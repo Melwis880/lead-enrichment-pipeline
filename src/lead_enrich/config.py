@@ -29,6 +29,13 @@ class FetchSettings(BaseModel):
     robots_cache_ttl_hours: float = 24.0  # RFC 9309 2.4: at most 24 h
 
 
+class ModelPrice(BaseModel):
+    """USD per million tokens."""
+
+    input: float = Field(ge=0)
+    output: float = Field(ge=0)
+
+
 class LLMSettings(BaseModel):
     model: str = "claude-haiku-4-5-20251001"
     max_tokens: int = 1024
@@ -37,8 +44,14 @@ class LLMSettings(BaseModel):
     max_retries: int = 2
     cache_dir: str = "cache/llm"
     mock_fixtures_dir: str = "fixtures/llm"
-    input_price_per_mtok: float = 1.0
-    output_price_per_mtok: float = 5.0
+    # USD per million tokens per model ID, for the cost report. A model missing here is reported
+    # as "unknown price", never priced as another model.
+    prices: dict[str, ModelPrice] = {
+        "claude-haiku-4-5-20251001": ModelPrice(input=1.0, output=5.0),
+    }
+
+    def price(self) -> ModelPrice | None:
+        return self.prices.get(self.model)
 
 
 class ValidationSettings(BaseModel):

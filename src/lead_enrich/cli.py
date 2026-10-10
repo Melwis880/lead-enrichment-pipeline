@@ -97,6 +97,14 @@ def run(
     web_mode = f"HTML fixtures from {html_fixtures}" if html_fixtures else "live websites"
     mode = f"{llm_mode} + {web_mode}"
 
+    if not settings.mock_llm and settings.llm.price() is None:
+        click.secho(
+            f"warning: no price for model {settings.llm.model} in llm.prices; "
+            "LLM cost will be reported as unknown",
+            fg="yellow",
+            err=True,
+        )
+
     if dry_run:
         _print_plan(companies, settings, icp_path, mode)
         return
@@ -175,7 +183,7 @@ def run(
         payload = write_stats(records, stats, stats_path)
         click.echo(
             f"\nDone in {payload['wall_time_s']} s. Tiers: {payload['tier_counts']}. "
-            f"LLM cost: ${payload['cost_usd']:.4f}"
+            f"LLM cost: {_dollars(payload['cost_usd'])}"
         )
         click.echo(f"Wrote {csv_path}, {summary_path}, {stats_path}")
     if fatal is not None:
@@ -198,12 +206,14 @@ def _progress(i: int, n: int, record: LeadRecord) -> None:
     click.echo(f"[{i}/{n}] {record.company.name} ({record.company.domain}) - {detail}")
 
 
+def _dollars(cost: float | None) -> str:
+    return "unknown price" if cost is None else f"${cost:.4f}"
+
+
 def _print_plan(companies, settings, icp_path: Path, mode: str) -> None:
     llm = settings.llm
+    price = llm.price()
     max_in = PROMPT_OVERHEAD_TOKENS + llm.max_input_chars // CHARS_PER_TOKEN
-    per_company = (
-        max_in * llm.input_price_per_mtok + TYPICAL_OUTPUT_TOKENS * llm.output_price_per_mtok
-    ) / 1_000_000
     pages = len(companies) * settings.fetch.max_pages_per_company
     min_minutes = pages * settings.fetch.min_delay_seconds / 60
     click.echo("Dry run - nothing will be fetched, sent or written.\n")
@@ -227,12 +237,15 @@ def _print_plan(companies, settings, icp_path: Path, mode: str) -> None:
     click.echo(f"Schema:     {len(EXTRACTION_JSON_SCHEMA['properties'])} fields, strict JSON")
     if settings.mock_llm:
         click.echo("Cost:       $0 (mock LLM)")
+    elif price is None:
+        click.echo(f"Cost:       unknown price for model {llm.model} (no entry in llm.prices)")
     else:
+        per_company = (max_in * price.input + TYPICAL_OUTPUT_TOKENS * price.output) / 1_000_000
         click.echo(
             f"Cost:       estimate <= ${per_company * len(companies):.2f} "
             f"(<= ${per_company * 100:.2f} per 100 companies; assumes full "
             f"{llm.max_input_chars}-char input, ~{TYPICAL_OUTPUT_TOKENS} output tokens, "
-            f"${llm.input_price_per_mtok}/${llm.output_price_per_mtok} per MTok)"
+            f"${price.input}/${price.output} per MTok)"
         )
         if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
             click.secho(

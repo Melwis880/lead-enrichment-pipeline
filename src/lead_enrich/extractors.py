@@ -48,7 +48,7 @@ class ExtractionResult:
     error: str | None = None
     input_tokens: int = 0
     output_tokens: int = 0
-    cost_usd: float = 0.0
+    cost_usd: float | None = 0.0  # None: the model has no entry in llm.prices
     latency_s: float = 0.0
 
 
@@ -84,11 +84,12 @@ class ClaudeExtractor:
         """Everything besides the input that decides the model's answer (part of the cache key)."""
         return [self.settings.model, PROMPT_VERSION, SYSTEM_PROMPT, EXTRACTION_JSON_SCHEMA]
 
-    def cost(self, input_tokens: int, output_tokens: int) -> float:
-        return (
-            input_tokens * self.settings.input_price_per_mtok
-            + output_tokens * self.settings.output_price_per_mtok
-        ) / 1_000_000
+    def cost(self, input_tokens: int, output_tokens: int) -> float | None:
+        """USD, or None if the model has no entry in llm.prices."""
+        price = self.settings.price()
+        if price is None:
+            return None
+        return (input_tokens * price.input + output_tokens * price.output) / 1_000_000
 
     def extract(self, company: str, domain: str, document: str) -> ExtractionResult:
         message = user_message(company, domain, document)

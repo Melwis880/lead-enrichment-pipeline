@@ -58,12 +58,22 @@ def test_request_uses_structured_output_and_model(tmp_path):
 
 def test_usage_and_cost_are_reported():
     ex = ClaudeExtractor(
-        LLMSettings(input_price_per_mtok=1.0, output_price_per_mtok=5.0),
+        LLMSettings(model="claude-haiku-4-5-20251001"),  # $1 / $5 per MTok in the price table
         client=FakeClient(fake_response(tokens=(2000, 400))),
     )
     result = ex.extract("Shop", "shop.example", "doc")
     assert (result.input_tokens, result.output_tokens) == (2000, 400)
     assert result.cost_usd == pytest.approx(0.002 + 0.002)
+
+
+def test_model_without_a_known_price_gets_no_cost_not_haikus():
+    ex = ClaudeExtractor(
+        LLMSettings(model="claude-unlisted-model"),
+        client=FakeClient(fake_response(tokens=(2000, 400))),
+    )
+    result = ex.extract("Shop", "shop.example", "doc")
+    assert result.input_tokens == 2000  # usage is still counted
+    assert result.cost_usd is None
 
 
 @pytest.mark.parametrize(

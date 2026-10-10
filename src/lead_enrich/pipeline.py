@@ -60,7 +60,7 @@ class LeadRecord:
     personal_emails_removed: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
-    cost_usd: float = 0.0
+    cost_usd: float | None = 0.0  # None: LLM called, but its price is unknown
     llm_cached: bool = False
     fetch_s: float = 0.0
     llm_s: float = 0.0

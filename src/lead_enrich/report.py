@@ -111,7 +111,10 @@ def compute_metrics(records: list[LeadRecord], stats: RunStats) -> dict[str, obj
     n = len(records)
     tokens_in = sum(r.input_tokens for r in records)
     tokens_out = sum(r.output_tokens for r in records)
-    cost = sum(r.cost_usd for r in records)
+    llm_costs = [r.cost_usd for r in records if r.input_tokens]
+    # One call at an unknown price makes the total unknown: never a partial sum or a guess.
+    cost = None if None in llm_costs else sum(llm_costs)
+    per_100 = None if cost is None else round(cost / n * 100, 4) if n else 0.0
     llm_calls = sum(1 for r in records if r.input_tokens)
     fetch_times = [r.fetch_s for r in records if r.fetch_s]  # companies whose pages were fetched
     slowest = sorted(records, key=lambda r: r.total_s, reverse=True)[:3]
@@ -134,8 +137,8 @@ def compute_metrics(records: list[LeadRecord], stats: RunStats) -> dict[str, obj
         else None,
         "input_tokens": tokens_in,
         "output_tokens": tokens_out,
-        "cost_usd": round(cost, 4),
-        "cost_per_100_companies_usd": round(cost / n * 100, 4) if n else 0.0,
+        "cost_usd": None if cost is None else round(cost, 4),
+        "cost_per_100_companies_usd": per_100,
         "flagged_fields": sum(len(r.enrichment.flags()) for r in records if r.enrichment),
         "personal_emails_redacted": sum(r.personal_emails_removed for r in records),
         "fetch": {k: (round(v, 1) if isinstance(v, float) else v) for k, v in stats.fetch.items()},
@@ -266,7 +269,9 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
         f"blocked by robots.txt: {int(m['fetch'].get('robots_blocked', 0))}",
         f"- LLM calls: {m['llm_calls']} (cache hits: {m['llm_cache_hits']}), tokens in/out: "
         f"{m['input_tokens']}/{m['output_tokens']}",
-        f"- LLM cost: ${m['cost_usd']:.4f} "
+        f"- LLM cost: unknown price for model {_md(stats.model)} (no entry in `llm.prices`)"
+        if m["cost_usd"] is None
+        else f"- LLM cost: ${m['cost_usd']:.4f} "
         f"(${m['cost_per_100_companies_usd']:.4f} per 100 companies)",
         f"- Flagged fields: {m['flagged_fields']}; personal emails redacted before the LLM: "
         f"{m['personal_emails_redacted']}",

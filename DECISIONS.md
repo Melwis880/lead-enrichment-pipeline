@@ -258,3 +258,14 @@ One entry per architecture or security decision, written when the decision is ma
   redaction, an address repeated in the description would still have reached the cache and the
   CSV. Old cache entries (raw answers, under a different key prefix) are never read again;
   deleting `cache/llm` removes them.
+
+## 2026-10-10 - Cost report: per-model price table, unknown means unknown
+- **Decision:** Token prices live in `llm.prices` (model ID -> input/output USD per million
+  tokens). The table holds only the model the project uses (`claude-haiku-4-5-20251001`, $1 /
+  $5); no other model prices were added. If the model (for example via `ENRICH_MODEL`) is not in
+  the table, the CLI warns at start, `cost_usd` and `cost_per_100_companies_usd` are `null` in
+  `run_stats.json`, and the summary and dry run say "unknown price".
+- **Alternatives:** Two global price settings (the old way: a different model was silently
+  priced at Haiku 4.5 rates); prices for every current model (would go stale, and adding prices
+  was out of scope).
+- **Why:** A wrong number in a cost report is worse than no number.

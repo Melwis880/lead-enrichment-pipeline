@@ -96,7 +96,7 @@ CLI options: `--config`, `--icp`, `--output-dir`, `--html-fixtures DIR`, `--limi
 
 | Where | What |
 |---|---|
-| `config/settings.yaml` | User-Agent, timeouts, retries, per-site delay, pages per company, cache dirs and TTL, model, `max_tokens`, input size cap, token prices, confidence threshold |
+| `config/settings.yaml` | User-Agent, timeouts, retries, per-site delay, pages per company, cache dirs and TTL, model, `max_tokens`, input size cap, per-model token prices (`llm.prices`; a model not listed is reported as "unknown price"), confidence threshold |
 | `config/icp.yaml` | Scoring: points per industry and size bucket, target cities/countries, contact-channel bonus, keywords, tier thresholds, minimum known core fields |
 | `.env` (git-ignored) | `ANTHROPIC_API_KEY`, optional `ENRICH_MODEL`, `MOCK_LLM` |
 

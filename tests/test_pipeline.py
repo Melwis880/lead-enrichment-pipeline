@@ -506,3 +506,15 @@ def test_llm_cache_misses_when_the_model_or_validation_changes(tmp_path, change)
     client = CountingClient()
     run_claude(changed, cache, client)
     assert len(client.calls) == 1
+
+
+def test_unknown_model_price_is_reported_as_unknown(in_tmp, monkeypatch):
+    monkeypatch.setattr(extractors.anthropic, "Anthropic", lambda **_: CountingClient())
+    monkeypatch.setenv("ENRICH_MODEL", "claude-unlisted-model")
+    result = run_cli(in_tmp, "--limit", "2", "--no-cache", mock=False)
+    assert "no price for model claude-unlisted-model" in result.output  # warning
+    stats = json.loads((in_tmp / "out" / "run_stats.json").read_text())
+    assert stats["input_tokens"] > 0
+    assert stats["cost_usd"] is None and stats["cost_per_100_companies_usd"] is None
+    summary = (in_tmp / "out" / "summary.md").read_text()
+    assert "LLM cost: unknown price for model claude-unlisted-model" in summary
