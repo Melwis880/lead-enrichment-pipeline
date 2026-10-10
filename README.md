@@ -150,8 +150,9 @@ Every website, header and model answer is treated as untrusted input.
   address). Only `http`/`https` URLs are followed. IP-literal hosts in the input CSV are rejected.
 - **One bad site cannot stall or crash the batch.** Each response body is read against a byte
   cap (after decompression, so gzip bombs are capped too) and an overall deadline
-  (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. Unknown charsets fall
-  back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
+  (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. A charset missing from
+  the `Content-Type` header is read from the page's `<meta>` tag; undeclared or unknown charsets
+  fall back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
   marks that company `internal_error` and the run continues.
 - **Plain HTTP is not trusted for contact data.** If HTTPS fails and a site is read over plain
   HTTP (fallback), the row is marked `insecure_transport` and no contact email or form URL from

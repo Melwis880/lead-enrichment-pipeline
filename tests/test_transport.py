@@ -11,6 +11,11 @@ from lead_enrich.config import FetchSettings
 from lead_enrich.fetcher import PoliteFetcher, RequestsTransport, TransportError
 
 HTML = "<html><body><p>Café crème</p></body></html>".encode()
+META_UTF8 = '<html><head><meta charset="utf-8"></head><body><p>Café crème</p></body></html>'
+META_CP1252 = (
+    '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">'
+    "</head><body><p>Price €5 – it’s open</p></body></html>"
+)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -38,6 +43,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(301)
                 self.send_header("location", "/lowercase")
                 self.end_headers()
+            elif self.path == "/no-charset-meta-utf8":
+                self._send({"Content-Type": "text/html"}, META_UTF8.encode("utf-8"))
+            elif self.path == "/no-charset-no-meta":
+                self._send({"Content-Type": "text/html"}, HTML)
+            elif self.path == "/no-charset-meta-cp1252":
+                self._send({"Content-Type": "text/html"}, META_CP1252.encode("cp1252"))
             elif self.path == "/utf8mb4":
                 self._send({"Content-Type": "text/html; charset=utf8mb4"}, HTML)
             elif self.path == "/no-ctype":
@@ -83,6 +94,18 @@ def get(server, path, **kwargs):
 def test_unknown_charset_falls_back_to_utf8(server):
     resp = get(server, "/utf8mb4")
     assert "Café crème" in resp.text
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/no-charset-meta-utf8", "Café crème"),  # charset only in <meta charset>
+        ("/no-charset-no-meta", "Café crème"),  # declared nowhere: UTF-8, not ISO-8859-1
+        ("/no-charset-meta-cp1252", "Price €5 – it’s open"),  # <meta http-equiv> form
+    ],
+)
+def test_charset_missing_from_header_is_taken_from_the_page(server, path, expected):
+    assert expected in get(server, path).text
 
 
 def test_missing_content_type_does_not_crash(server):

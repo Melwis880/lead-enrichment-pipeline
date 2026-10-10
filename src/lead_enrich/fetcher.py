@@ -14,6 +14,7 @@ from urllib.parse import urljoin, urlsplit
 
 import requests
 import urllib3
+from bs4.dammit import EncodingDetector
 from requests.structures import CaseInsensitiveDict
 
 from .cache import JsonDiskCache
@@ -77,16 +78,22 @@ class RequestsTransport:
                     if not chunk:
                         break
                     body += chunk
-                return HttpResponse(
-                    url,
-                    resp.status_code,
-                    resp.headers,
-                    decode_body(bytes(body[: self.max_bytes]), resp.encoding),
-                )
+                data = bytes(body[: self.max_bytes])
+                charset = declared_charset(resp.headers.get("Content-Type"), data)
+                return HttpResponse(url, resp.status_code, resp.headers, decode_body(data, charset))
         except requests.Timeout as exc:
             raise TransportError(f"timeout after {timeout}s") from exc
         except (requests.RequestException, urllib3.exceptions.HTTPError, OSError) as exc:
             raise TransportError(type(exc).__name__) from exc
+
+
+def declared_charset(content_type: str | None, body: bytes) -> str | None:
+    """The charset the response declares: in Content-Type if it names one, else in a <meta> tag
+    near the top of the page. None (decoded as UTF-8) if neither does. requests' own default,
+    ISO-8859-1 for any text/* without a charset, is not used: such pages are usually UTF-8."""
+    if content_type and "charset=" in content_type.lower():
+        return requests.utils.get_encoding_from_headers({"content-type": content_type})
+    return EncodingDetector.find_declared_encoding(body[:4096], is_html=True)
 
 
 def decode_body(body: bytes, encoding: str | None) -> str:
