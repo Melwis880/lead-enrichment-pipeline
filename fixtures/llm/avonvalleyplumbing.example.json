@@ -1,0 +1,40 @@
+{
+  "industry": {
+    "value": "construction_and_trades",
+    "detail": "plumbing and heating contractor",
+    "confidence": 0.96
+  },
+  "description": {
+    "value": "Family-run plumbing and heating firm installing and servicing boilers and handling emergency plumbing across Bristol and North Somerset.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "2-10",
+    "evidence": "seven engineers and two office staff",
+    "confidence": 0.8
+  },
+  "location": {
+    "city": "Bristol",
+    "region": "North Somerset",
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Boiler installation",
+      "Boiler servicing",
+      "Emergency plumbing",
+      "Bathroom fitting",
+      "Free written quotes"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": null,
+    "confidence": 0.9
+  },
+  "contact_form_url": {
+    "value": "https://avonvalleyplumbing.example/contact-us",
+    "confidence": 0.9
+  }
+}

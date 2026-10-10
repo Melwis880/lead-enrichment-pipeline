@@ -1,0 +1,39 @@
+{
+  "industry": {
+    "value": "accounting_and_finance",
+    "detail": "chartered accountancy practice",
+    "confidence": 0.97
+  },
+  "description": {
+    "value": "Accountancy practice providing year-end accounts, VAT, payroll and cloud bookkeeping setup for Bristol small businesses.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "2-10",
+    "evidence": "team of six accountants and bookkeepers",
+    "confidence": 0.85
+  },
+  "location": {
+    "city": "Bristol",
+    "region": null,
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Year-end accounts",
+      "VAT returns",
+      "Payroll",
+      "Cloud bookkeeping setup"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "info@ledgerandco.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}

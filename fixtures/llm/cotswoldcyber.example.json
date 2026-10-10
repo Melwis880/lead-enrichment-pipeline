@@ -1,0 +1,38 @@
+{
+  "industry": {
+    "value": "software_and_it",
+    "detail": "managed cyber security provider",
+    "confidence": 0.95
+  },
+  "description": {
+    "value": "Managed security provider offering 24/7 security operations, penetration testing and compliance consulting.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "51-200",
+    "evidence": "more than 90 people",
+    "confidence": 0.85
+  },
+  "location": {
+    "city": "Cheltenham",
+    "region": "Gloucestershire",
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Security operations",
+      "Penetration testing",
+      "Compliance consulting"
+    ],
+    "confidence": 0.9
+  },
+  "contact_email": {
+    "value": "contact@cotswoldcyber.example",
+    "confidence": 0.95
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}

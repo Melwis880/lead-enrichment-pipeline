@@ -1,0 +1,34 @@
+# Pipeline settings. Every key is optional; defaults live in src/lead_enrich/config.py.
+fetch:
+  # Identify ourselves honestly and give site owners a way to reach us.
+  user_agent: "LeadEnrichBot/0.1 (+https://github.com/melwis880/lead-enrichment-pipeline; public business info only)"
+  timeout_seconds: 10         # per read
+  connect_timeout_seconds: 5  # a host that does not accept the connection by then is not retried
+  deadline_seconds: 20        # whole response body, so a slow-drip server cannot hang the run
+  max_retries: 2              # retries after the first try: read timeouts, resets, 429, 5xx
+                              # (not after a connect timeout or a blown deadline)
+  backoff_base_seconds: 1.0   # 1s, 2s, 4s ... (Retry-After is honoured, capped at 60s)
+  min_delay_seconds: 2.0      # per domain; robots.txt Crawl-delay wins if larger
+  max_pages_per_company: 3    # homepage + about + contact
+  max_page_bytes: 2000000
+  cache_dir: cache/http
+  cache_ttl_hours: 72         # parsed pages; keep below how often you run (weekly -> < 168)
+  robots_cache_ttl_hours: 24  # RFC 9309: robots.txt is re-read at least daily
+
+llm:
+  model: claude-haiku-4-5-20251001   # override with ENRICH_MODEL
+  max_tokens: 1024
+  max_input_chars: 12000      # page text sent per company (cost cap)
+  timeout_seconds: 60
+  max_retries: 2
+  cache_dir: cache/llm
+  cache_ttl_hours: 720        # validated results; may hold names from free text, so not forever
+  mock_fixtures_dir: fixtures/llm
+  # USD per million tokens, per model ID, for the cost report. A model not listed here (e.g. via
+  # ENRICH_MODEL) is reported as "unknown price". Check current pricing before relying on it.
+  prices:
+    claude-haiku-4-5-20251001: {input: 1.0, output: 5.0}
+    claude-haiku-4-5: {input: 1.0, output: 5.0}           # alias of the same model
+
+validation:
+  min_confidence: 0.6         # fields below this are flagged and left blank

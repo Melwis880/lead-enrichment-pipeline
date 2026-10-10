@@ -1,0 +1,40 @@
+{
+  "industry": {
+    "value": "retail",
+    "detail": "independent bookshop with cafe",
+    "confidence": 0.95
+  },
+  "description": {
+    "value": "Independent bookshop and coffee bar in Redcliffe, Bristol, with author events and local deliveries from its online shop.",
+    "confidence": 0.9
+  },
+  "size_signal": {
+    "value": "2-10",
+    "evidence": "five people run the shop and coffee bar",
+    "confidence": 0.8
+  },
+  "location": {
+    "city": "Bristol",
+    "region": null,
+    "country_code": "GB",
+    "confidence": 0.9
+  },
+  "products_services": {
+    "value": [
+      "Books",
+      "Coffee bar",
+      "Author events",
+      "Online shop",
+      "Local deliveries"
+    ],
+    "confidence": 0.85
+  },
+  "contact_email": {
+    "value": "priya.example@redcliffebooks.example",
+    "confidence": 0.7
+  },
+  "contact_form_url": {
+    "value": null,
+    "confidence": 0.9
+  }
+}
