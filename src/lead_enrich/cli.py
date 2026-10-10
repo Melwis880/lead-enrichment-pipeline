@@ -117,7 +117,9 @@ def run(
         )
     else:
         fetcher = PoliteFetcher(
-            settings.fetch, RequestsTransport(settings.fetch.max_page_bytes), http_cache
+            settings.fetch,
+            RequestsTransport(settings.fetch.max_page_bytes, settings.fetch.deadline_seconds),
+            http_cache,
         )
     if settings.mock_llm:
         extractor = MockExtractor(settings.llm.mock_fixtures_dir)

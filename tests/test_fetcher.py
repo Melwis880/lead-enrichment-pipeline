@@ -162,3 +162,11 @@ def test_cache_ttl(tmp_path, ttl, expect_hit):
     cache = JsonDiskCache(tmp_path, ttl_hours=ttl)
     cache.set("k", {"v": 1})
     assert (cache.get("k") is not None) == expect_hit
+
+
+@pytest.mark.parametrize("value", ["²", "٣", "1e3", "-5", "123456", " 9x"])
+def test_odd_retry_after_values_fall_back_to_backoff(fetch_settings, clock, value):
+    script = {"https://a.example/": [(503, "", {"Retry-After": value}), (200, "ok")]}
+    fetcher, _ = make(fetch_settings, clock, script)
+    assert fetcher.fetch("https://a.example/").ok
+    assert clock.sleeps[-1] == 1.0  # normal backoff, header ignored

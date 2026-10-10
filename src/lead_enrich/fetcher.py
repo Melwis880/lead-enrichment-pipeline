@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from typing import Protocol
 from urllib.parse import urljoin, urlsplit
 
 import requests
+import urllib3
 
 from .cache import JsonDiskCache
 from .config import FetchSettings
@@ -19,6 +21,7 @@ RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_REDIRECTS = 5
 MAX_RETRY_AFTER_SECONDS = 60.0
 MAX_CRAWL_DELAY_SECONDS = 60.0
+RETRY_AFTER_RE = re.compile(r"[0-9]{1,5}")
 
 
 class TransportError(Exception):
@@ -39,29 +42,52 @@ class Transport(Protocol):
 
 class RequestsTransport:
     """Real network transport. Does not follow redirects; the fetcher does, so every hop is
-    checked against robots.txt and rate-limited."""
+    checked against robots.txt and rate-limited.
 
-    def __init__(self, max_bytes: int = 2_000_000) -> None:
+    The body is read with ``read1`` (at most one socket read per call), so both the byte cap and
+    the overall deadline are checked between reads. A server that drips one byte at a time can
+    hold us for at most ``deadline_seconds`` plus one per-read ``timeout``.
+    """
+
+    def __init__(self, max_bytes: int = 2_000_000, deadline_seconds: float = 20.0) -> None:
         self.session = requests.Session()
         self.max_bytes = max_bytes
+        self.deadline_seconds = deadline_seconds
 
     def get(self, url: str, headers: dict[str, str], timeout: float) -> HttpResponse:
+        deadline = time.monotonic() + self.deadline_seconds
         try:
             with self.session.get(
                 url, headers=headers, timeout=timeout, allow_redirects=False, stream=True
             ) as resp:
-                body = b""
-                for chunk in resp.iter_content(chunk_size=65536):
-                    body += chunk
-                    if len(body) > self.max_bytes:
+                body = bytearray()
+                while len(body) < self.max_bytes:
+                    if time.monotonic() > deadline:
+                        raise TransportError(f"deadline of {self.deadline_seconds:.0f}s exceeded")
+                    chunk = resp.raw.read1(
+                        min(65536, self.max_bytes - len(body)), decode_content=True
+                    )
+                    if not chunk:
                         break
-                encoding = resp.encoding or resp.apparent_encoding or "utf-8"
-                text = body[: self.max_bytes].decode(encoding, errors="replace")
-                return HttpResponse(url, resp.status_code, dict(resp.headers), text)
+                    body += chunk
+                return HttpResponse(
+                    url,
+                    resp.status_code,
+                    dict(resp.headers),
+                    decode_body(bytes(body[: self.max_bytes]), resp.encoding),
+                )
         except requests.Timeout as exc:
             raise TransportError(f"timeout after {timeout}s") from exc
-        except requests.RequestException as exc:
+        except (requests.RequestException, urllib3.exceptions.HTTPError, OSError) as exc:
             raise TransportError(type(exc).__name__) from exc
+
+
+def decode_body(body: bytes, encoding: str | None) -> str:
+    """Decode with the declared charset; unknown or broken charsets fall back to UTF-8."""
+    try:
+        return body.decode(encoding or "utf-8", errors="replace")
+    except (LookupError, UnicodeError):
+        return body.decode("utf-8", errors="replace")
 
 
 class FixtureTransport:
@@ -244,6 +270,7 @@ class PoliteFetcher:
         raise AssertionError("unreachable")  # pragma: no cover
 
     def _backoff(self, attempt: int, retry_after: str | None) -> float:
-        if retry_after and retry_after.strip().isdigit():
-            return min(float(retry_after), MAX_RETRY_AFTER_SECONDS)
+        # Only plain ASCII delay-seconds; HTTP-dates, Unicode digits and junk use normal backoff.
+        if retry_after and RETRY_AFTER_RE.fullmatch(retry_after.strip()):
+            return min(float(retry_after.strip()), MAX_RETRY_AFTER_SECONDS)
         return self.settings.backoff_base_seconds * (2**attempt)

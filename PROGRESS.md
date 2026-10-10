@@ -53,6 +53,23 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] No secrets in history (checked `git log -p` for key patterns; only `.env.example` tracked)
 - [x] PR opened with summary (draft until the real-mode run is done)
 
+## Phase 10 - Security audit fixes (2026-10-10)
+- [ ] 1. Robustness: body deadline + byte cap, safe decoding, strict Retry-After, per-company
+      `internal_error`, partial outputs on interrupt; tests for utf8mb4, missing Content-Type,
+      non-ASCII-digit Retry-After, oversized body, slow drip
+- [ ] 2. SSRF: reject non-public addresses on every hop; reject IP-literal input; tests; document
+      DNS-rebinding gap
+- [ ] 3. Slack/Markdown injection: validated media type in errors; escape all summary fields; tests
+- [ ] 4. robots.txt via protego (longest match, `*`, `$`); tests
+- [ ] 5. No raw HTML at rest: cache parsed, redacted pages only; cache dirs 0700; README matches
+- [ ] 6. Redaction gaps: plus-addressing, internationalised domains, obfuscated forms; tests
+- [ ] 7. `.env` loader allowlist
+- [ ] 8. `off_domain_email` flag
+- [ ] 9. `insecure_transport` column; no contact channels from HTTP pages
+- [ ] 10. CI `persist-credentials: false`; dependency upper bounds
+- [ ] 11. README: keyword points are self-reported by the site
+- [ ] BUILD_LOG security review section, DECISIONS entries, PR description updated
+
 ## Current state (2026-10-09)
 
 **Done**
