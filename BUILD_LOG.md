@@ -79,8 +79,59 @@ exist before, so its tests fail at import there).
 - **Names in free text** remain (unchanged decision, see DECISIONS.md).
 - **LLM cache** stores the model's raw JSON answer, before validation. If a personal address ever
   slipped past redaction and the model repeated it, it would be rejected in the output but kept
-  in `cache/llm`. Delete `cache/` to purge.
+  in `cache/llm`. Delete `cache/` to purge. *(Fixed in the optimization pass below.)*
 - **SHA-pinning GitHub Actions and a lockfile:** out of scope by request.
+
+## Optimization pass (2026-10-10)
+An optimization audit (`OPTIMIZATIONS.md`) found little worth speeding up: CPU for the whole mock
+run is 0.36 s. The real problems were in the live-network path, which the offline fixtures never
+exercised (`FixtureTransport` always sends a correctly cased `Content-Type` with
+`charset=utf-8`). Applied, one commit each, every fix with a test that fails on the old code:
+- **Lowercase headers** (`content-type:`, `location:`): every page failed as
+  `not HTML (missing)` and redirects were not followed. Headers are now case-insensitive.
+- **No charset in the header** made requests decode UTF-8 pages as Latin-1 (`Café` -> `CafÃ©`).
+  The charset now comes from the page's `<meta>` tag, else UTF-8.
+- **Dead and slow sites:** connect timeouts and blown body deadlines were retried 3 times, and
+  then the whole sequence was repeated over plain HTTP. Now: 5 s connect timeout, no retry for
+  those two, and the HTTP fallback runs only after a TLS error or a refused connection.
+- **Cache lifetimes:** pages 72 h (was 168 h, the same as the weekly n8n schedule, so a weekly
+  run could reuse last week's pages and answers), robots.txt 24 h (RFC 9309).
+- **Timing report:** `run_stats.json` and the summary now show average fetch time and the 3
+  slowest companies.
+- **LLM cache** stores only the validated result; validation also removes personal emails from
+  free-text fields. **Cost report** uses a per-model price table; an unknown model is reported
+  as "unknown price", never priced as Haiku 4.5.
+
+**Problems hit**
+- Making the retry tests fail on the old code *by assertion* (not just because a new keyword
+  argument did not exist) needed a real dead host. A local socket with a full listen queue
+  (`listen(0)` plus three unaccepted connects) gives a genuine `ConnectTimeout` on 127.0.0.1;
+  the old code fails with `assert (3 == 1)` attempts and `assert 6 == 1` requests per company.
+- My first "before" demo run came back with `Tiers: {}`: I had started it from a scratch folder,
+  and `llm.mock_fixtures_dir` is relative. Re-ran from the repo root.
+
+**Measured (local sockets and fake-clock simulation, not live sites)**
+
+| Case, default settings | Before | After |
+|---|---|---|
+| One dead (blackholed) host, real sockets | 33.0 s, 3 attempts | 5.0 s, 1 attempt |
+| One slow-drip host, real sockets | 63.1 s, 3 attempts | 20.0 s, 1 attempt |
+| Healthy host / refused port, real sockets | 2.0 s / 4.0 s | 2.0 s / 4.0 s (unchanged) |
+| Dead company, https + http (simulation) | 66.0 s, 6 requests | 5.0 s, 1 request |
+| Slow-drip company, worst case (simulation) | 186.0 s | 30.0 s |
+| Healthy company (simulation) | 6.4 s | 6.4 s |
+| Header/charset cases handled (4 local cases) | 1 of 4 | 4 of 4 |
+| Mock demo (demo data) | 11 ok, A5/B3/C2/review 1, 47 requests | identical `enriched.csv` and counts |
+| Test suite | 178 tests | 203 tests, ~8-10 s |
+
+**Post hooks**
+- "My scraper passed every test and would have failed on real websites: the fixtures always sent
+  `Content-Type`, the real world sometimes sends `content-type`."
+- "A dead website cost my pipeline 66 seconds and a healthy one 6. Retrying a timeout three
+  times, then again over HTTP, is not resilience, it is waiting."
+
+**Screenshot:** `python -m pytest tests/test_transport.py -k "dead_host or deadline" -v`
+next to the before/after table above.
 
 ## Measured numbers (demo data)
 All from the mock demo: 13 invented companies, saved HTML, hand-written mock LLM answers.

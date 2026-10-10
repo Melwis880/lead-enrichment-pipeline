@@ -71,7 +71,22 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] 11. README: keyword points are self-reported by the site
 - [x] BUILD_LOG security review section, DECISIONS entries, PR description updated
 
-## Current state (2026-10-09)
+## Phase 11 - Optimization pass (2026-10-10, see OPTIMIZATIONS.md)
+- [x] F1 Case-insensitive response headers; test with a real local server
+- [x] F3 Charset from the page's `<meta>` when the header has none (no Latin-1 default)
+- [x] F2 (partial) Separate 5 s connect timeout; no retry after connect timeout or blown
+      deadline; HTTP fallback only after TLS error or refused connection; DECISIONS entry
+- [ ] F2 (rest) Per-company time budget: not requested in this pass
+- [x] F6 Page cache 72 h, robots.txt 24 h (weekly run no longer reuses last week's pages)
+- [x] F9 Average fetch time and 3 slowest companies in `run_stats.json` and the summary
+- [x] LLM cache stores only the validated result; personal emails removed from free-text
+      fields (open item from the security review)
+- [x] Per-model price table; unknown model reported as "unknown price" with a warning
+- [x] Before/after measurements; OPTIMIZATIONS.md "Applied"; BUILD_LOG section
+- [ ] F4 concurrency, F5 model change, F7 input budget, F8 cache size/prune, F10 validator
+      reuse: deferred by request (reasons in OPTIMIZATIONS.md "Applied")
+
+## Current state (2026-10-10)
 
 **Done**
 - Full pipeline: polite fetching, parsing + redaction, Claude extraction with structured
@@ -80,7 +95,11 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - Security audit (2026-10-10): all 11 items fixed (robustness, SSRF guard, Slack/Markdown
   escaping, protego robots, no raw HTML at rest, redaction gaps, `.env` allowlist,
   `off_domain_email`, `insecure_transport`, CI/dependency hardening, README note).
-- 178 offline tests passing on Python 3.11, 3.12, 3.13; ruff clean.
+- Optimization pass (2026-10-10): lowercase headers, missing charset, dead/slow-site retries
+  and HTTP fallback, cache lifetimes, timing report, validated-only LLM cache, per-model price
+  table. Dead host 33 s -> 5 s and slow-drip host 63 s -> 20 s on local sockets.
+- 203 offline tests passing locally on Python 3.13; ruff clean. CI (3.11-3.13) not yet run on
+  the optimization commits (not pushed).
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 
@@ -102,3 +121,7 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 5. Close the DNS-rebinding window (connect to the checked IP) before running on a network with
    sensitive internal services; consider an overall deadline for the header phase too.
 6. Out of scope for now, by request: SHA-pinning GitHub Actions, a lockfile.
+7. Deferred optimizations (OPTIMIZATIONS.md): per-company time budget (F2 rest), cross-domain
+   concurrency only if lists grow past a few hundred (F4), evaluate `claude-haiku-5-5` on the
+   20-company hand-checked sample, owner's decision (F5), LLM input budget (F7), cache size cap
+   and prune command (F8).
