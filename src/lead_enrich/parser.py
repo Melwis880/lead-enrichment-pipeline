@@ -8,6 +8,8 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
+from .urls import InvalidURLError, canonical_url
+
 # Unicode-aware: internationalised local parts and domains (jane@müller.de) are emails too.
 _LABEL = r"[^\W_](?:[\w-]*[^\W_])?"
 _TLD = r"(?:[^\W\d_]{2,}|xn--[\w-]+)"
@@ -131,7 +133,12 @@ def parse_html(html: str, url: str) -> ParsedPage:
             continue
         if href.startswith(("#", "javascript:", "tel:")):
             continue
-        absolute = urljoin(url, href)
+        try:
+            # Canonical form, so the same-site check sees the host that would really be
+            # contacted (http://10.0.0.1\@shop.example/ is 10.0.0.1, not shop.example).
+            absolute = canonical_url(urljoin(url, href))
+        except (InvalidURLError, ValueError):
+            continue
         if urlsplit(absolute).scheme in ("http", "https"):
             page.links.append(Link(_clean_url(absolute), " ".join(a.get_text(" ").split())))
 

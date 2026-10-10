@@ -22,6 +22,7 @@ from requests.structures import CaseInsensitiveDict
 from .cache import JsonDiskCache
 from .config import FetchSettings
 from .robots import RobotsPolicy
+from .urls import InvalidURLError, canonical_url
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_REDIRECTS = 5
@@ -247,6 +248,13 @@ class UnsafeHostError(Exception):
     """The URL points at a non-public address or scheme (SSRF guard)."""
 
 
+def _canonical(url: str) -> str:
+    try:
+        return canonical_url(url)
+    except InvalidURLError as exc:
+        raise UnsafeHostError("invalid URL") from exc
+
+
 NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 
 
@@ -351,6 +359,7 @@ class PoliteFetcher:
         current = url
         for _ in range(MAX_REDIRECTS + 1):
             try:
+                current = _canonical(current)  # the start URL and every redirect target
                 self._check_host(current)
             except UnsafeHostError as exc:
                 return FetchResult(url, current, error=f"blocked: {exc}")
@@ -451,6 +460,7 @@ class PoliteFetcher:
             "Accept": "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8",
             "Accept-Language": "en",
         }
+        url = _canonical(url)  # also covers the robots.txt redirect hop
         origin = origin_of(url)
         attempts = self.settings.max_retries + 1
         for attempt in range(attempts):

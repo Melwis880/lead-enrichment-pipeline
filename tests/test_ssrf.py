@@ -166,3 +166,76 @@ def test_dns_answer_changing_between_checks_is_still_a_clean_block():
     result = fetcher.fetch("https://shop.example/")  # must not raise
     assert result.error and "non-public" in result.error
     assert "https://shop.example/" not in transport.calls
+
+
+# urlsplit and urllib3 read different hosts from these URLs; the guard must see urllib3's.
+BACKSLASH_REDIRECTS = [
+    "http://127.0.0.1:8765\\@shop.example/",
+    "http://169.254.169.254\\@shop.example/../latest/meta-data/iam/",
+]
+
+
+@pytest.mark.parametrize("location", BACKSLASH_REDIRECTS)
+def test_backslash_host_trick_in_a_redirect_is_blocked(location):
+    transport = Recorder({"https://shop.example/": (302, "", {"Location": location})})
+    table = {**PUBLIC, "127.0.0.1": ["127.0.0.1"], "169.254.169.254": ["169.254.169.254"]}
+    result = guarded_fetcher(transport, table).fetch("https://shop.example/")
+    assert result.error and "non-public" in result.error
+    assert transport.calls == ["https://shop.example/robots.txt", "https://shop.example/"]
+
+
+@pytest.mark.parametrize("url", BACKSLASH_REDIRECTS)
+def test_backslash_host_trick_as_start_url_is_blocked(url):
+    transport = Recorder({})
+    table = {**PUBLIC, "127.0.0.1": ["127.0.0.1"], "169.254.169.254": ["169.254.169.254"]}
+    result = guarded_fetcher(transport, table).fetch(url)
+    assert result.error and "non-public" in result.error and transport.calls == []
+
+
+def test_idna_hostname_is_checked_in_the_form_that_is_connected_to():
+    # socket.getaddrinfo encodes with IDNA 2003 (straße -> strasse); requests connects to the
+    # UTS 46 form (xn--strae-oqa). An attacker controlling DNS can point them apart.
+    def idna2003_resolver(host, port, *args, **kwargs):
+        table = {
+            "strasse.attacker.example": ["93.184.216.34"],
+            "xn--strae-oqa.attacker.example": ["127.0.0.1"],
+        }
+        name = host.encode("idna").decode("ascii")
+        if name not in table:
+            raise socket.gaierror("not found")
+        return [(socket.AF_INET, 1, 6, "", (ip, port)) for ip in table[name]]
+
+    from lead_enrich.config import FetchSettings
+
+    transport = Recorder({})
+    fetcher = PoliteFetcher(
+        FetchSettings(),
+        transport,
+        sleep=lambda _s: None,
+        host_check=lambda url: check_public_host(url, resolver=idna2003_resolver),
+    )
+    result = fetcher.fetch("https://straße.attacker.example/")
+    assert result.error and "non-public" in result.error and transport.calls == []
+
+
+def test_url_with_control_characters_is_rejected():
+    transport = Recorder(
+        {"https://shop.example/": (302, "", {"Location": "http://\x1bc\x1b7x.example/"})}
+    )
+    result = guarded_fetcher(transport, PUBLIC).fetch("https://shop.example/")
+    assert result.error == "blocked: invalid URL"
+    assert "\x1b" not in "".join(transport.calls)
+
+
+def test_backslash_host_link_is_not_treated_as_a_same_site_page():
+    from lead_enrich.parser import discover_pages, parse_html
+
+    html = (
+        '<a href="http://169.254.169.254\\@shop.example/../latest/meta-data/iam/">About us</a>'
+        '<a href="/contact">Contact</a>'
+    )
+    page = parse_html(html, "https://shop.example/")
+    hosts = {link.url.split("/")[2] for link in page.links}
+    assert "169.254.169.254" in hosts and "shop.example" in hosts
+    picked = discover_pages(page, "shop.example", 3)
+    assert picked == ["https://shop.example/contact"]
