@@ -198,6 +198,15 @@ def discover_pages(home: ParsedPage, domain: str, max_pages: int) -> list[str]:
     return picked
 
 
+PAGE_TAG_RE = re.compile(r"<(/?)(page)\b", re.IGNORECASE)
+
+
+def _no_page_tags(text: str) -> str:
+    """Site text must not open or close a <page> block in the LLM document (a fake </page>
+    could make text look like it came from another page)."""
+    return PAGE_TAG_RE.sub(r"&lt;\1\2", text)
+
+
 def build_llm_document(pages: list[ParsedPage], max_chars: int) -> tuple[str, bool]:
     """Concatenate pages for the LLM, splitting the character budget evenly between pages."""
     if not pages:
@@ -209,10 +218,11 @@ def build_llm_document(pages: list[ParsedPage], max_chars: int) -> tuple[str, bo
         body = page.text
         if len(body) > budget:
             body, truncated = body[:budget] + " [...]", True
+        url = _no_page_tags(page.url).replace('"', "%22")
         parts.append(
-            f'<page url="{page.url}">\nTitle: {page.title}\n'
-            f"Meta description: {page.meta_description}\n"
+            f'<page url="{url}">\nTitle: {_no_page_tags(page.title)}\n'
+            f"Meta description: {_no_page_tags(page.meta_description)}\n"
             f"Contact form on page: {'yes' if page.has_contact_form else 'no'}\n"
-            f"Text: {body}\n</page>"
+            f"Text: {_no_page_tags(body)}\n</page>"
         )
     return "\n\n".join(parts), truncated

@@ -220,16 +220,24 @@ class FixtureTransport:
         self.root = Path(root)
         self.calls: list[str] = []
 
-    def _base(self, url: str) -> Path:
+    def _base(self, url: str) -> Path | None:
+        """The fixture path for ``url``, or None if it would leave the fixture folder (a ``..``
+        in a link must not read other files on disk)."""
         parts = urlsplit(url)
         path = parts.path.strip("/") or "index"
         if path == "robots.txt":
-            return self.root / parts.netloc / "robots"
-        return self.root / parts.netloc / path.removesuffix(".html")
+            base = self.root / parts.netloc / "robots"
+        else:
+            base = self.root / parts.netloc / path.removesuffix(".html")
+        root = self.root.resolve()
+        resolved = base.resolve()
+        return base if resolved == root or root in resolved.parents else None
 
     def get(self, url: str, headers: dict[str, str], timeout: float) -> HttpResponse:
         self.calls.append(url)
         base = self._base(url)
+        if base is None:
+            return HttpResponse(url, 404, {"Content-Type": "text/html"}, "Not found")
         status_file = base.with_name(base.name + ".status")
         if status_file.exists():
             spec = status_file.read_text(encoding="utf-8").strip()

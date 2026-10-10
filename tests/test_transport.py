@@ -312,3 +312,16 @@ def test_netrc_credentials_are_never_sent(server, tmp_path, monkeypatch):
     netrc.chmod(0o600)
     monkeypatch.setenv("NETRC", str(netrc))
     assert get(server, "/echo-auth").text == "auth=none"
+
+
+def test_fixture_transport_never_reads_outside_its_folder(tmp_path):
+    from lead_enrich.fetcher import FixtureTransport
+
+    (tmp_path / "secret.html").write_text("TOP SECRET", encoding="utf-8")
+    root = tmp_path / "sites"
+    (root / "shop.example").mkdir(parents=True)
+    (root / "shop.example" / "index.html").write_text("home", encoding="utf-8")
+    transport = FixtureTransport(root)
+    assert transport.get("https://shop.example/", {}, 1).text == "home"
+    resp = transport.get("https://shop.example/../../secret.html", {}, 1)
+    assert resp.status == 404 and "SECRET" not in resp.text
