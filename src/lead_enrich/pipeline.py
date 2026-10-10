@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import ipaddress
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -12,7 +14,7 @@ from pathlib import Path
 
 from .cache import JsonDiskCache
 from .config import Settings
-from .extractors import Extractor, FatalExtractorError
+from .extractors import Extractor, FatalExtractorError, user_message
 from .fetcher import FetchResult, PoliteFetcher
 from .parser import (
     PARSER_VERSION,
@@ -22,7 +24,13 @@ from .parser import (
     normalize_domain,
     parse_html,
 )
-from .schema import Enrichment, Evidence, ExtractionError, validate_extraction
+from .schema import (
+    VALIDATION_VERSION,
+    Enrichment,
+    Evidence,
+    ExtractionError,
+    validate_extraction,
+)
 from .scoring import ICP, ScoreResult, score_lead
 
 NAME_COLUMNS = ("company_name", "company", "name")
@@ -159,6 +167,31 @@ def _fetch_home(source: PageSource, domain: str) -> tuple[FetchResult, ParsedPag
     return result, page
 
 
+def _llm_cache_key(
+    extractor: Extractor,
+    company: Company,
+    document: str,
+    evidence: Evidence,
+    min_confidence: float,
+) -> str | None:
+    """Key of the validated-result cache: what decides the model's answer plus everything
+    validation reads. None for extractors that are not cached (the mock)."""
+    identity = getattr(extractor, "cache_identity", None)
+    if identity is None:
+        return None
+    blob = json.dumps(
+        [
+            identity(),
+            user_message(company.name, company.domain, document),
+            evidence.fingerprint(),
+            min_confidence,
+            VALIDATION_VERSION,
+        ],
+        sort_keys=True,
+    )
+    return "llm-validated:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 def enrich_company(
     company: Company,
     fetcher: PoliteFetcher,
@@ -166,6 +199,7 @@ def enrich_company(
     settings: Settings,
     icp: ICP,
     page_cache: JsonDiskCache | None = None,
+    llm_cache: JsonDiskCache | None = None,
 ) -> LeadRecord:
     started = time.monotonic()
     record = LeadRecord(company=company)
@@ -200,21 +234,29 @@ def enrich_company(
             insecure_emails={e for p in insecure for e in p.generic_emails},
             insecure_form_urls={p.url for p in insecure if p.has_contact_form},
         )
-        llm_started = time.monotonic()
-        result = extractor.extract(company.name, company.domain, document)
-        record.llm_s = time.monotonic() - llm_started
-        record.input_tokens, record.output_tokens = result.input_tokens, result.output_tokens
-        record.cost_usd, record.llm_cached = result.cost_usd, result.from_cache
-        if result.error or result.data is None:
-            record.status, record.error = "extraction_failed", result.error or "no data"
-            return record
-        try:
-            record.enrichment = validate_extraction(
-                result.data, evidence, settings.validation.min_confidence
-            )
-        except ExtractionError as exc:
-            record.status, record.error = "extraction_failed", str(exc)
-            return record
+        min_confidence = settings.validation.min_confidence
+        key = _llm_cache_key(extractor, company, document, evidence, min_confidence)
+        if llm_cache is not None and key and (hit := llm_cache.get(key)):
+            record.enrichment = Enrichment.model_validate(hit["enrichment"])
+            record.llm_cached = True
+        else:
+            llm_started = time.monotonic()
+            result = extractor.extract(company.name, company.domain, document)
+            record.llm_s = time.monotonic() - llm_started
+            record.input_tokens, record.output_tokens = result.input_tokens, result.output_tokens
+            record.cost_usd = result.cost_usd
+            if result.error or result.data is None:
+                record.status, record.error = "extraction_failed", result.error or "no data"
+                return record
+            try:
+                record.enrichment = validate_extraction(result.data, evidence, min_confidence)
+            except ExtractionError as exc:
+                record.status, record.error = "extraction_failed", str(exc)
+                return record
+            if llm_cache is not None and key:
+                # Only the validated result is stored, never the raw answer: rejected values
+                # (a personal address the model repeated, an unverified contact) stay off disk.
+                llm_cache.set(key, {"enrichment": record.enrichment.model_dump()})
         record.score = score_lead(record.enrichment, icp)
         return record
     finally:
@@ -231,6 +273,7 @@ def run_pipeline(
     progress: Callable[[int, int, LeadRecord], None] | None = None,
     records: list[LeadRecord] | None = None,
     page_cache: JsonDiskCache | None = None,
+    llm_cache: JsonDiskCache | None = None,
 ) -> list[LeadRecord]:
     """Enrich every company. Results are appended to ``records`` as they finish, so a caller
     that passes its own list keeps the finished companies if the run is interrupted."""
@@ -239,7 +282,9 @@ def run_pipeline(
     try:
         for i, company in enumerate(companies, start=1):
             try:
-                record = enrich_company(company, fetcher, extractor, settings, icp, page_cache)
+                record = enrich_company(
+                    company, fetcher, extractor, settings, icp, page_cache, llm_cache
+                )
             except FatalExtractorError:
                 raise
             except Exception as exc:  # one hostile or odd site must never sink the batch

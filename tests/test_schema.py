@@ -160,3 +160,17 @@ def test_internationalised_company_domain_matches_punycode_email():
     data = mutate("contact_email.value", "info@xn--mller-kva.example")
     data["contact_form_url"]["value"] = None
     assert validate_extraction(data, ev, 0.6).get("contact_email") == "info@xn--mller-kva.example"
+
+
+def test_personal_emails_are_removed_from_free_text_fields():
+    text = "Write to jane.smith@shop.example or info@shop.example"
+    raw = {
+        "industry": {"value": "retail", "detail": "ask jane.smith@shop.example", "confidence": 0.9},
+        "description": {"value": text, "confidence": 0.9},
+        "products_services": {"value": ["Bread", "sam@shop.example"], "confidence": 0.9},
+    }
+    e = validate_extraction(raw, Evidence(domain="shop.example"), min_confidence=0.6)
+    blob = json.dumps(e.model_dump())
+    assert "jane.smith" not in blob and "sam@" not in blob
+    assert "info@shop.example" in e.get("description")  # role mailboxes stay
+    assert "[personal email removed]" in e.get("description")

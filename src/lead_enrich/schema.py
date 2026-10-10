@@ -14,7 +14,16 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from .parser import EMAIL_RE, is_generic_email, normalize_domain, same_site
+from .parser import (
+    EMAIL_RE,
+    is_generic_email,
+    normalize_domain,
+    redact_personal_emails,
+    same_site,
+)
+
+# Bump when validation rules change, so cached validated results are not reused.
+VALIDATION_VERSION = "1"
 
 INDUSTRIES = (
     "food_and_drink",
@@ -121,6 +130,16 @@ class Evidence:
     insecure_emails: set[str] = field(default_factory=set)
     insecure_form_urls: set[str] = field(default_factory=set)
 
+    def fingerprint(self) -> list:
+        """Everything validation reads from the evidence, in a stable JSON-able form."""
+        return [
+            normalize_domain(self.domain),
+            sorted(self.generic_emails),
+            sorted(self.form_urls),
+            sorted(self.insecure_emails),
+            sorted(self.insecure_form_urls),
+        ]
+
 
 class ExtractionError(ValueError):
     """The model's output could not be used at all."""
@@ -140,11 +159,16 @@ def _confidence(raw: Any) -> tuple[float, str | None]:
     return float(raw), None
 
 
+def _text(raw: Any) -> str:
+    """Whitespace-normalised model text with personal email addresses removed: an address that
+    slipped past redaction and was repeated by the model must not reach the output or cache."""
+    return redact_personal_emails(" ".join(str(raw).split()))[0]
+
+
 def _short(raw: Any, limit: int = MAX_SHORT) -> str | None:
     if not isinstance(raw, str):
         return None
-    cleaned = " ".join(raw.split())
-    return cleaned[:limit] or None
+    return _text(raw)[:limit] or None
 
 
 def _ascii_domain(domain: str) -> str:
@@ -178,7 +202,7 @@ def _check_field(name: str, raw: Any, evidence: Evidence) -> FieldResult:
             result.value = value
     elif name == "description":
         if value is not None:
-            text = " ".join(str(value).split())
+            text = _text(value)
             if len(text) > MAX_DESCRIPTION:
                 result.flag = "too_long"
             elif text:

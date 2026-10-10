@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import time
 from dataclasses import dataclass
@@ -11,7 +10,6 @@ from typing import Any, Protocol
 
 import anthropic
 
-from .cache import JsonDiskCache
 from .config import LLMSettings
 from .schema import EXTRACTION_JSON_SCHEMA
 
@@ -52,7 +50,6 @@ class ExtractionResult:
     output_tokens: int = 0
     cost_usd: float = 0.0
     latency_s: float = 0.0
-    from_cache: bool = False
 
 
 class Extractor(Protocol):
@@ -66,14 +63,11 @@ def user_message(company: str, domain: str, document: str) -> str:
 
 
 class ClaudeExtractor:
-    def __init__(
-        self,
-        settings: LLMSettings,
-        client: Any | None = None,
-        cache: JsonDiskCache | None = None,
-    ) -> None:
+    """Calls Claude. Caching happens in the pipeline, after validation (see
+    pipeline.enrich_company), so the model's raw answer is never written to disk."""
+
+    def __init__(self, settings: LLMSettings, client: Any | None = None) -> None:
         self.settings = settings
-        self.cache = cache
         self.label = f"claude ({settings.model})"
         self._client = client
 
@@ -86,12 +80,9 @@ class ClaudeExtractor:
             )
         return self._client
 
-    def _cache_key(self, message: str) -> str:
-        blob = json.dumps(
-            [self.settings.model, PROMPT_VERSION, SYSTEM_PROMPT, EXTRACTION_JSON_SCHEMA, message],
-            sort_keys=True,
-        )
-        return "llm:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    def cache_identity(self) -> list:
+        """Everything besides the input that decides the model's answer (part of the cache key)."""
+        return [self.settings.model, PROMPT_VERSION, SYSTEM_PROMPT, EXTRACTION_JSON_SCHEMA]
 
     def cost(self, input_tokens: int, output_tokens: int) -> float:
         return (
@@ -101,10 +92,6 @@ class ClaudeExtractor:
 
     def extract(self, company: str, domain: str, document: str) -> ExtractionResult:
         message = user_message(company, domain, document)
-        key = self._cache_key(message)
-        if self.cache is not None and (hit := self.cache.get(key)):
-            return ExtractionResult(data=hit["data"], from_cache=True)
-
         started = time.monotonic()
         try:
             response = self.client.messages.create(
@@ -154,9 +141,6 @@ class ClaudeExtractor:
             result.data = json.loads(text)
         except json.JSONDecodeError:
             result.error = "model output is not valid JSON"
-            return result
-        if self.cache is not None:
-            self.cache.set(key, {"data": result.data})
         return result
 
 

@@ -130,8 +130,11 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
 - **What is stored on disk.** Raw HTML is never written to disk. The page cache
   (`cache/http`, 72 h TTL; robots.txt 24 h) holds only the *parsed* page: visible text with personal emails
   already removed, title, links and role mailboxes; plus robots.txt files. The LLM cache
-  (`cache/llm`) holds the model's JSON answers. Cache folders are created owner-only (`0700`,
-  files `0600`). Names in running text can still be in the cached text (see Limitations);
+  (`cache/llm`) holds only the *validated* result per company (accepted values and flags), never
+  the model's raw answer, so a rejected personal address is not kept; validation also removes
+  personal email addresses from free-text fields. Entries written by versions before this change
+  are no longer read; delete `cache/llm` to remove them. Cache folders are created owner-only
+  (`0700`, files `0600`). Names in running text can still be in the cached text (see Limitations);
   delete `cache/` to erase everything, e.g. after a run or on an objection.
 - **No secrets in the repo.** Keys come from the environment or a git-ignored `.env`;
   `.env.example` is the only env file committed.

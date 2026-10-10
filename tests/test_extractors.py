@@ -5,7 +5,6 @@ import anthropic
 import httpx2
 import pytest
 
-from lead_enrich.cache import JsonDiskCache
 from lead_enrich.config import LLMSettings
 from lead_enrich.extractors import (
     SYSTEM_PROMPT,
@@ -65,29 +64,6 @@ def test_usage_and_cost_are_reported():
     result = ex.extract("Shop", "shop.example", "doc")
     assert (result.input_tokens, result.output_tokens) == (2000, 400)
     assert result.cost_usd == pytest.approx(0.002 + 0.002)
-
-
-def test_cache_hit_skips_api_and_costs_nothing(tmp_path):
-    cache = JsonDiskCache(tmp_path)
-    first = FakeClient(fake_response())
-    ClaudeExtractor(LLMSettings(), client=first, cache=cache).extract("S", "s.example", "doc")
-    second = FakeClient(fake_response())
-    result = ClaudeExtractor(LLMSettings(), client=second, cache=cache).extract(
-        "S", "s.example", "doc"
-    )
-    assert result.from_cache and result.cost_usd == 0 and second.calls == []
-
-
-def test_cache_key_changes_with_model(tmp_path):
-    cache = JsonDiskCache(tmp_path)
-    ClaudeExtractor(
-        LLMSettings(model="a"), client=FakeClient(fake_response()), cache=cache
-    ).extract("S", "s.example", "doc")
-    other = FakeClient(fake_response())
-    ClaudeExtractor(LLMSettings(model="b"), client=other, cache=cache).extract(
-        "S", "s.example", "doc"
-    )
-    assert len(other.calls) == 1
 
 
 @pytest.mark.parametrize(

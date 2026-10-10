@@ -242,3 +242,19 @@ One entry per architecture or security decision, written when the decision is ma
   few seconds under 168 h old at 07:00 this Monday, so the weekly run could reuse last week's pages
   and, with identical text, last week's LLM answers. RFC 9309 section 2.4 says a cached robots.txt
   should not be used for more than 24 h. Re-runs while tuning scoring stay free for three days.
+
+## 2026-10-10 - The LLM cache holds validated results only
+- **Decision:** The cache moved from `ClaudeExtractor` into `pipeline.enrich_company` and stores
+  the validated `Enrichment` (accepted values, confidences, flags), never the model's raw JSON.
+  Its key covers what decides the answer (model, prompt version, system prompt, schema, page
+  text) and everything validation reads (evidence, `min_confidence`, `VALIDATION_VERSION`).
+  Validation also removes personal email addresses from free-text fields (description, notes,
+  products, location text), not only from `contact_email`.
+- **Alternatives:** Keep caching the raw answer and re-validate on read (the open item from the
+  security review: a personal address the model repeated was rejected in the output but kept in
+  `cache/llm`); cache a "cleaned raw" answer (loses the flags on re-validation); no LLM cache
+  (re-runs while tuning scoring would cost a model call each time).
+- **Why:** Personal data rejected by validation should not sit on disk. Without the free-text
+  redaction, an address repeated in the description would still have reached the cache and the
+  CSV. Old cache entries (raw answers, under a different key prefix) are never read again;
+  deleting `cache/llm` removes them.

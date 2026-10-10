@@ -132,7 +132,7 @@ def run(
     if settings.mock_llm:
         extractor = MockExtractor(settings.llm.mock_fixtures_dir)
     else:
-        extractor = ClaudeExtractor(settings.llm, cache=llm_cache)
+        extractor = ClaudeExtractor(settings.llm)
 
     stats = RunStats(
         input_path=str(input_csv),
@@ -146,7 +146,16 @@ def run(
     interrupted = False
     try:
         run_pipeline(
-            companies, fetcher, extractor, settings, icp, stats, _progress, records, http_cache
+            companies,
+            fetcher,
+            extractor,
+            settings,
+            icp,
+            stats,
+            _progress,
+            records,
+            page_cache=http_cache,
+            llm_cache=llm_cache,  # validated results only; the mock extractor is never cached
         )
     except FatalExtractorError as exc:
         fatal = exc

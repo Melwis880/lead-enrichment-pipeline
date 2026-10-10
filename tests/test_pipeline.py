@@ -3,6 +3,7 @@
 import csv
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
@@ -425,3 +426,83 @@ def test_plain_http_is_tried_only_after_tls_failure_or_refusal(https_failure, fa
     tried_http = any(u.startswith("http://") for u in transport.calls)
     assert tried_http is falls_back
     assert record.status == ("ok" if falls_back else "fetch_failed")
+
+
+JANE = "jane.smith@shop.example"  # a personal address the model should never have repeated
+LEAKY_ANSWER = {
+    "industry": {"value": "food_and_drink", "detail": f"ask {JANE}", "confidence": 0.9},
+    "description": {"value": f"Family bakery. Orders: {JANE}", "confidence": 0.9},
+    "size_signal": {"value": "2-10", "evidence": "team of five", "confidence": 0.9},
+    "location": {"city": "Bristol", "region": None, "country_code": "GB", "confidence": 0.9},
+    "products_services": {"value": ["Bread", JANE], "confidence": 0.9},
+    "contact_email": {"value": JANE, "confidence": 0.9},
+    "contact_form_url": {"value": None, "confidence": 0.1},
+}
+
+
+class CountingClient:
+    """Stands in for the Anthropic client: every request gets the same JSON answer."""
+
+    def __init__(self, answer=LEAKY_ANSWER) -> None:
+        self.answer, self.calls = answer, []
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=json.dumps(self.answer))],
+            stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=1000, output_tokens=300),
+        )
+
+
+def test_personal_address_repeated_by_the_model_is_not_kept_on_disk(in_tmp, monkeypatch):
+    # A personal address that slipped past redaction and was repeated by the model must end up
+    # neither in the LLM cache nor in any output: only the validated result is stored.
+    monkeypatch.setattr(extractors.anthropic, "Anthropic", lambda **_: CountingClient())
+    result = run_cli(in_tmp, "--limit", "2", mock=False)
+    assert result.exit_code == 0, result.output
+    llm_cache = [p for p in (in_tmp / "cache").rglob("*.json") if "llm" in str(p)]
+    assert llm_cache, "nothing was cached"
+    for path in [*llm_cache, *(in_tmp / "out").iterdir()]:
+        assert "jane.smith" not in path.read_text(encoding="utf-8"), path
+
+
+def run_claude(settings, cache, client):
+    return enrich_company(
+        Company("Clifton Paws", "cliftonpaws.example"),
+        make_fetcher(settings),
+        extractors.ClaudeExtractor(settings.llm, client=client),
+        settings,
+        load_icp(ROOT / "config" / "icp.yaml"),
+        llm_cache=cache,
+    )
+
+
+def test_llm_cache_hit_reuses_the_validated_result_without_an_api_call(tmp_path):
+    from lead_enrich.cache import JsonDiskCache
+
+    cache = JsonDiskCache(tmp_path)
+    first_client, second_client = CountingClient(), CountingClient()
+    first = run_claude(Settings(), cache, first_client)
+    second = run_claude(Settings(), cache, second_client)
+    assert len(first_client.calls) == 1 and second_client.calls == []
+    assert second.llm_cached and second.input_tokens == 0 and second.cost_usd == 0
+    assert second.enrichment == first.enrichment and second.score == first.score
+    assert "contact_email:personal_email_rejected" in second.enrichment.flags()
+
+
+@pytest.mark.parametrize("change", ["model", "min_confidence"])
+def test_llm_cache_misses_when_the_model_or_validation_changes(tmp_path, change):
+    from lead_enrich.cache import JsonDiskCache
+
+    cache = JsonDiskCache(tmp_path)
+    run_claude(Settings(), cache, CountingClient())
+    changed = Settings()
+    if change == "model":
+        changed.llm.model = "another-model"
+    else:
+        changed.validation.min_confidence = 0.95
+    client = CountingClient()
+    run_claude(changed, cache, client)
+    assert len(client.calls) == 1
