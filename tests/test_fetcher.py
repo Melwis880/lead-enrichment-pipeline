@@ -122,6 +122,29 @@ def test_timeout_is_reported_not_raised(fetch_settings, clock):
     assert result.error and "timeout" in result.error
 
 
+def test_non_retryable_transport_error_is_not_retried(fetch_settings, clock):
+    err = TransportError("connect timeout after 5.0s", kind="timeout", retryable=False)
+    fetcher, transport = make(fetch_settings, clock, {"https://a.example/": [err]})
+    result = fetcher.fetch("https://a.example/")
+    assert result.error_kind == "timeout"
+    assert [u for u, _ in transport.calls].count("https://a.example/") == 1
+    assert fetcher.stats["retries"] == 0
+
+
+def test_read_timeout_is_still_retried(fetch_settings, clock):
+    err = TransportError("timeout after 10s", kind="timeout")
+    fetcher, _ = make(fetch_settings, clock, {"https://a.example/": [err, (200, "ok")]})
+    assert fetcher.fetch("https://a.example/").ok
+    assert fetcher.stats["retries"] == 1
+
+
+def test_robots_network_error_reports_its_kind(fetch_settings, clock):
+    err = TransportError("TLS error", kind="tls")
+    fetcher, _ = make(fetch_settings, clock, {"https://a.example/robots.txt": [err]})
+    result = fetcher.fetch("https://a.example/")
+    assert result.error == "network error: site unreachable" and result.error_kind == "tls"
+
+
 def test_404_is_not_retried(fetch_settings, clock):
     fetcher, transport = make(fetch_settings, clock, {})
     result = fetcher.fetch("https://a.example/missing")

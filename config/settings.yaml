@@ -2,9 +2,11 @@
 fetch:
   # Identify ourselves honestly and give site owners a way to reach us.
   user_agent: "LeadEnrichBot/0.1 (+https://github.com/melwis880/lead-enrichment-pipeline; public business info only)"
-  timeout_seconds: 10         # per connect / per read
+  timeout_seconds: 10         # per read
+  connect_timeout_seconds: 5  # a host that does not accept the connection by then is not retried
   deadline_seconds: 20        # whole response body, so a slow-drip server cannot hang the run
-  max_retries: 2              # retries after the first attempt, for timeouts / 429 / 5xx
+  max_retries: 2              # retries after the first try: read timeouts, resets, 429, 5xx
+                              # (not after a connect timeout or a blown deadline)
   backoff_base_seconds: 1.0   # 1s, 2s, 4s ... (Retry-After is honoured, capped at 60s)
   min_delay_seconds: 2.0      # per domain; robots.txt Crawl-delay wins if larger
   max_pages_per_company: 3    # homepage + about + contact

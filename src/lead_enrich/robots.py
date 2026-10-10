@@ -21,6 +21,7 @@ class RobotsPolicy:
     mode: str  # "rules" | "allow_all" | "disallow_all"
     reason: str = ""
     network_error: bool = False  # robots.txt could not be fetched at all (site unreachable)
+    error_kind: str | None = None  # why not, as TransportError.kind ("timeout", "tls", ...)
     _parser: Protego | None = field(default=None, repr=False)
 
     @classmethod
@@ -31,13 +32,16 @@ class RobotsPolicy:
         return cls(user_agent=user_agent, mode="rules", reason="robots.txt rules", _parser=parser)
 
     @classmethod
-    def from_status(cls, status: int | None, text: str, user_agent: str) -> RobotsPolicy:
+    def from_status(
+        cls, status: int | None, text: str, user_agent: str, error_kind: str | None = None
+    ) -> RobotsPolicy:
         if status is None:
             return cls(
                 user_agent,
                 "disallow_all",
                 "robots.txt unreachable (network error)",
                 network_error=True,
+                error_kind=error_kind,
             )
         if 200 <= status < 300:
             return cls.from_text(text, user_agent)

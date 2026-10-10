@@ -214,3 +214,20 @@ One entry per architecture or security decision, written when the decision is ma
   mock run's numbers as if they were real (dishonest).
 - **Why:** No API key will be available. The brief forbids invented results, so the docs say
   exactly what was and was not measured.
+
+## 2026-10-10 - Dead and slow sites: no retry after a connect timeout or a blown deadline
+- **Decision:** Connecting has its own timeout (`fetch.connect_timeout_seconds`, 5 s, never
+  longer than the 10 s read timeout). A connect timeout or a body that exceeds the 20 s deadline
+  is not retried; read timeouts, resets, refused connections, 429 and 5xx still are (2 retries,
+  backoff as before). The homepage falls back to plain HTTP only when HTTPS failed with a TLS
+  error or a refused connection, no longer after a timeout or a DNS failure. This replaces the
+  "2 retries ... for timeouts" part of the 2026-10-09 politeness decision.
+- **Alternatives:** Keep retrying every timeout (the old behaviour: a blackholed host cost 66 s
+  and a slow-drip host 186 s per company in a fake-clock simulation, against 6.4 s for a healthy
+  site); fall back to HTTP after any network error; a per-company time budget (deferred, see
+  OPTIMIZATIONS.md F2).
+- **Why:** A host that ignored a connect for 5 s, or dripped a body past 20 s, almost always
+  does the same a second later, and in a sequential run every wasted second blocks the whole
+  list. Accepted costs: a site with a one-off connect blip is not retried, and a site whose port
+  443 is firewalled while port 80 works is now `fetch_failed` instead of an `insecure_transport`
+  row (contact data from such a row was never accepted anyway).

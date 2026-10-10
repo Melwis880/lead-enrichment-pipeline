@@ -49,7 +49,7 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| `fetcher.py` | Robots check per origin (also on each redirect hop), per-site rate limit, timeouts, retries with backoff for timeouts/429/5xx, `Retry-After`, SSRF guard, body deadline and byte cap, robots.txt cache. Transport is swappable: live (`requests`) or saved HTML fixtures. |
+| `fetcher.py` | Robots check per origin (also on each redirect hop), per-site rate limit, separate connect and read timeouts, retries with backoff for read timeouts/resets/429/5xx (not after a connect timeout or a blown deadline), `Retry-After`, SSRF guard, body deadline and byte cap, robots.txt cache. Transport is swappable: live (`requests`) or saved HTML fixtures. |
 | `robots.py` | RFC 9309 semantics: 2xx obey, 4xx allow, 5xx/network error disallow everything. Rule matching by [protego](https://github.com/scrapy/protego) (longest match, `*` and `$`). `Crawl-delay` honoured. |
 | `parser.py` | Visible text, about/contact page discovery (people/team/careers pages excluded), role-based email detection, personal email redaction, contact-form detection. |
 | `extractors.py` | `ClaudeExtractor` (Anthropic SDK, structured outputs, token usage and cost, LLM response cache) and `MockExtractor` (saved fixtures). |
@@ -154,10 +154,12 @@ Every website, header and model answer is treated as untrusted input.
   the `Content-Type` header is read from the page's `<meta>` tag; undeclared or unknown charsets
   fall back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
   marks that company `internal_error` and the run continues.
-- **Plain HTTP is not trusted for contact data.** If HTTPS fails and a site is read over plain
-  HTTP (fallback), the row is marked `insecure_transport` and no contact email or form URL from
-  those pages is accepted (`insecure_source` flag): it could have been altered in transit. If a run is interrupted (Ctrl-C) or
-  stopped by a configuration error, the companies already finished are still written out.
+- **Plain HTTP is not trusted for contact data.** If the HTTPS handshake fails or the HTTPS
+  connection is refused, the homepage is tried once over plain HTTP (never after a timeout). A
+  site read over plain HTTP is marked `insecure_transport`, and no contact email or form URL from
+  those pages is accepted (`insecure_source` flag): it could have been altered in transit. If a
+  run is interrupted (Ctrl-C) or stopped by a configuration error, the companies already finished
+  are still written out.
 - **No Slack or Markdown injection.** Every field in `summary.md` (company names, errors, model
   output, config text) is escaped: `&`, `<`, `>` (so no `<!channel>` or `<url|label>` in Slack),
   backticks, brackets and pipes. Error messages carry only a validated media type, never raw

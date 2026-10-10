@@ -122,7 +122,11 @@ def run(
     else:
         fetcher = PoliteFetcher(
             settings.fetch,
-            RequestsTransport(settings.fetch.max_page_bytes, settings.fetch.deadline_seconds),
+            RequestsTransport(
+                settings.fetch.max_page_bytes,
+                settings.fetch.deadline_seconds,
+                settings.fetch.connect_timeout_seconds,
+            ),
             http_cache,
         )
     if settings.mock_llm:

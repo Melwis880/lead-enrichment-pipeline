@@ -16,7 +16,8 @@ DEFAULT_USER_AGENT = (
 
 class FetchSettings(BaseModel):
     user_agent: str = DEFAULT_USER_AGENT
-    timeout_seconds: float = 10.0
+    timeout_seconds: float = 10.0  # per read
+    connect_timeout_seconds: float = 5.0  # capped at timeout_seconds
     deadline_seconds: float = 20.0  # whole response, not per read
     max_retries: int = Field(default=2, ge=0, le=5)
     backoff_base_seconds: float = 1.0

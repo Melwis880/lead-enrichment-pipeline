@@ -143,10 +143,16 @@ class PageSource:
         return result, page
 
 
+# Network failures on https:// after which plain http:// is worth one try.
+HTTP_FALLBACK_KINDS = frozenset({"tls", "refused"})
+
+
 def _fetch_home(source: PageSource, domain: str) -> tuple[FetchResult, ParsedPage | None]:
     result, page = source.get(f"https://{domain}/")
-    if result.error and result.error.startswith("network error"):
-        # Some small-business sites still have no working TLS. Try plain HTTP once.
+    if result.error_kind in HTTP_FALLBACK_KINDS:
+        # Some small-business sites still have no working TLS (broken handshake, nothing on 443).
+        # Try plain HTTP once. Not after a timeout: a host that does not answer on 443 rarely
+        # answers on 80, and waiting for it twice is what made dead sites so slow.
         fallback, fallback_page = source.get(f"http://{domain}/")
         if fallback.ok or fallback.skipped:
             return fallback, fallback_page

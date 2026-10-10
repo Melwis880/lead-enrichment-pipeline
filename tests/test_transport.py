@@ -1,14 +1,18 @@
 """RequestsTransport against a local HTTP server on 127.0.0.1 (no outside network)."""
 
 import gzip
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from lead_enrich.config import FetchSettings
+from lead_enrich.config import FetchSettings, Settings
+from lead_enrich.extractors import MockExtractor
 from lead_enrich.fetcher import PoliteFetcher, RequestsTransport, TransportError
+from lead_enrich.pipeline import Company, enrich_company
+from lead_enrich.scoring import ICP
 
 HTML = "<html><body><p>Café crème</p></body></html>".encode()
 META_UTF8 = '<html><head><meta charset="utf-8"></head><body><p>Café crème</p></body></html>'
@@ -86,6 +90,48 @@ def server():
     httpd.shutdown()
 
 
+@pytest.fixture(scope="module")
+def blackhole_port():
+    """A port whose listen queue is full, so connect() never completes: a real connect timeout
+    (what a firewalled or dead host looks like), without leaving 127.0.0.1."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(0)
+    port = srv.getsockname()[1]
+    fillers = []
+    for _ in range(3):
+        filler = socket.socket()
+        filler.setblocking(False)
+        try:
+            filler.connect(("127.0.0.1", port))
+        except BlockingIOError:
+            pass
+        fillers.append(filler)
+    time.sleep(0.2)
+    yield port
+    for sock in (srv, *fillers):
+        sock.close()
+
+
+@pytest.fixture
+def refused_port():
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()  # nothing listens here any more
+    return port
+
+
+def quick_fetcher(**transport_kwargs):
+    """Real transport, short read timeout, no politeness sleeping."""
+    return PoliteFetcher(
+        FetchSettings(timeout_seconds=0.5, max_retries=2),
+        RequestsTransport(**transport_kwargs),
+        sleep=lambda _s: None,
+        host_check=None,
+    )
+
+
 def get(server, path, **kwargs):
     transport = RequestsTransport(**kwargs)
     return transport.get(server + path, {"User-Agent": "test"}, timeout=2.0)
@@ -122,10 +168,58 @@ def test_oversized_body_without_content_type_is_capped(server):
 
 def test_slow_drip_hits_overall_deadline(server):
     started = time.monotonic()
-    with pytest.raises(TransportError, match="deadline"):
+    with pytest.raises(TransportError, match="deadline") as info:
         get(server, "/drip", deadline_seconds=1.5)
     # deadline + at most one per-read timeout (2 s), far below the 20 s the server would drip
     assert time.monotonic() - started < 4.5
+    assert info.value.kind == "timeout" and info.value.retryable is False
+
+
+def test_connect_timeout_is_a_non_retryable_timeout(blackhole_port):
+    started = time.monotonic()
+    with pytest.raises(TransportError, match="connect timeout") as info:
+        RequestsTransport(connect_timeout_seconds=0.5).get(
+            f"http://127.0.0.1:{blackhole_port}/", {}, timeout=2.0
+        )
+    assert time.monotonic() - started < 1.5  # the connect timeout, not the 2 s read timeout
+    assert info.value.kind == "timeout" and info.value.retryable is False
+
+
+def test_refused_connection_is_recognised(refused_port):
+    with pytest.raises(TransportError) as info:
+        RequestsTransport().get(f"http://127.0.0.1:{refused_port}/", {}, timeout=2.0)
+    assert info.value.kind == "refused" and info.value.retryable is True
+
+
+def test_dead_host_is_tried_once_not_three_times(blackhole_port):
+    fetcher = quick_fetcher()
+    result = fetcher.fetch(f"http://127.0.0.1:{blackhole_port}/")
+    assert result.error and result.error.startswith("network error")
+    assert fetcher.stats["requests"] == 1 and fetcher.stats["retries"] == 0
+
+
+def test_body_past_the_deadline_is_not_fetched_again(server):
+    fetcher = quick_fetcher(deadline_seconds=1.0)
+    result = fetcher.fetch(server + "/drip")
+    assert result.error and "deadline" in result.error
+    assert fetcher.stats["requests"] == 2  # robots.txt + one try of the page
+    assert fetcher.stats["retries"] == 0
+
+
+def test_dead_host_is_not_retried_over_plain_http(blackhole_port, tmp_path):
+    # https:// and http:// both point at the dead port; only the first is tried.
+    fetcher = quick_fetcher()
+    started = time.monotonic()
+    record = enrich_company(
+        Company("Dead", f"127.0.0.1:{blackhole_port}"),
+        fetcher,
+        MockExtractor(tmp_path),
+        Settings(),
+        ICP(),
+    )
+    assert record.status == "fetch_failed"
+    assert fetcher.stats["requests"] == 1
+    assert time.monotonic() - started < 1.5
 
 
 def test_lowercase_header_names_are_understood(server):

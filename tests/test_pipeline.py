@@ -335,18 +335,24 @@ def test_cache_files_are_private(in_tmp):
 
 
 class HttpOnlyTransport:
-    """https fails at the network level; plain http serves a page with contact details."""
+    """https fails at the network level (TLS by default); plain http serves a page with contact
+    details."""
 
     PAGE = (
         "<html><body><p>Plain Shop. Email info@plain.example</p>"
         "<form><input type='email'><textarea></textarea></form></body></html>"
     )
 
+    def __init__(self, https_failure: str = "tls") -> None:
+        self.https_failure = https_failure
+        self.calls: list[str] = []
+
     def get(self, url, headers, timeout):
         from lead_enrich.fetcher import HttpResponse, TransportError
 
+        self.calls.append(url)
         if url.startswith("https://"):
-            raise TransportError("TLS handshake failed")
+            raise TransportError(f"https failed: {self.https_failure}", kind=self.https_failure)
         if url.endswith("robots.txt"):
             return HttpResponse(url, 404, {"Content-Type": "text/plain"}, "")
         return HttpResponse(url, 200, {"Content-Type": "text/html"}, self.PAGE)
@@ -400,3 +406,22 @@ def test_contact_channels_from_plain_http_pages_are_not_accepted(tmp_path):
     with (tmp_path / "out.csv").open() as fh:
         row = next(csv.DictReader(fh))
     assert row["insecure_transport"] == "yes"
+
+
+@pytest.mark.parametrize(
+    "https_failure,falls_back", [("tls", True), ("refused", True), ("timeout", False)]
+)
+def test_plain_http_is_tried_only_after_tls_failure_or_refusal(https_failure, falls_back):
+    settings = Settings()
+    transport = HttpOnlyTransport(https_failure)
+    fetcher = PoliteFetcher(settings.fetch, transport, sleep=lambda _s: None, host_check=None)
+    record = enrich_company(
+        Company("Plain Shop", "plain.example"),
+        fetcher,
+        PlainShopLLM(),
+        settings,
+        load_icp(ROOT / "config" / "icp.yaml"),
+    )
+    tried_http = any(u.startswith("http://") for u in transport.calls)
+    assert tried_http is falls_back
+    assert record.status == ("ok" if falls_back else "fetch_failed")

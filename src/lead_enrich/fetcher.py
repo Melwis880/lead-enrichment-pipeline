@@ -29,7 +29,17 @@ RETRY_AFTER_RE = re.compile(r"[0-9]{1,5}")
 
 
 class TransportError(Exception):
-    """Network-level failure (DNS, connection, timeout)."""
+    """Network-level failure (DNS, connection, timeout).
+
+    ``kind`` is "timeout", "tls", "refused", "dns" or "other"; the pipeline uses it to decide
+    whether trying plain HTTP makes sense. ``retryable`` is False where another try a few seconds
+    later almost never helps: a connect timeout or a body that blew the overall deadline.
+    """
+
+    def __init__(self, message: str = "", *, kind: str = "other", retryable: bool = True) -> None:
+        super().__init__(message)
+        self.kind = kind
+        self.retryable = retryable
 
 
 @dataclass
@@ -55,23 +65,40 @@ class RequestsTransport:
     The body is read with ``read1`` (at most one socket read per call), so both the byte cap and
     the overall deadline are checked between reads. A server that drips one byte at a time can
     hold us for at most ``deadline_seconds`` plus one per-read ``timeout``.
+
+    Connecting has its own, shorter timeout (never longer than the read ``timeout``).
     """
 
-    def __init__(self, max_bytes: int = 2_000_000, deadline_seconds: float = 20.0) -> None:
+    def __init__(
+        self,
+        max_bytes: int = 2_000_000,
+        deadline_seconds: float = 20.0,
+        connect_timeout_seconds: float = 5.0,
+    ) -> None:
         self.session = requests.Session()
         self.max_bytes = max_bytes
         self.deadline_seconds = deadline_seconds
+        self.connect_timeout_seconds = connect_timeout_seconds
 
     def get(self, url: str, headers: dict[str, str], timeout: float) -> HttpResponse:
         deadline = time.monotonic() + self.deadline_seconds
+        connect_timeout = min(self.connect_timeout_seconds, timeout)
         try:
             with self.session.get(
-                url, headers=headers, timeout=timeout, allow_redirects=False, stream=True
+                url,
+                headers=headers,
+                timeout=(connect_timeout, timeout),
+                allow_redirects=False,
+                stream=True,
             ) as resp:
                 body = bytearray()
                 while len(body) < self.max_bytes:
                     if time.monotonic() > deadline:
-                        raise TransportError(f"deadline of {self.deadline_seconds:.0f}s exceeded")
+                        raise TransportError(
+                            f"deadline of {self.deadline_seconds:.0f}s exceeded",
+                            kind="timeout",
+                            retryable=False,
+                        )
                     chunk = resp.raw.read1(
                         min(65536, self.max_bytes - len(body)), decode_content=True
                     )
@@ -81,10 +108,34 @@ class RequestsTransport:
                 data = bytes(body[: self.max_bytes])
                 charset = declared_charset(resp.headers.get("Content-Type"), data)
                 return HttpResponse(url, resp.status_code, resp.headers, decode_body(data, charset))
-        except requests.Timeout as exc:
-            raise TransportError(f"timeout after {timeout}s") from exc
+        except requests.ConnectTimeout as exc:
+            raise TransportError(
+                f"connect timeout after {connect_timeout}s", kind="timeout", retryable=False
+            ) from exc
+        except requests.exceptions.SSLError as exc:
+            raise TransportError("TLS error", kind="tls") from exc
+        except (requests.Timeout, urllib3.exceptions.TimeoutError, TimeoutError) as exc:
+            # Read timeout: the server accepted the connection, so it may just be busy.
+            raise TransportError(f"timeout after {timeout}s", kind="timeout") from exc
         except (requests.RequestException, urllib3.exceptions.HTTPError, OSError) as exc:
-            raise TransportError(type(exc).__name__) from exc
+            kind = "refused" if _caused_by(exc, ConnectionRefusedError) else "other"
+            raise TransportError(type(exc).__name__, kind=kind) from exc
+
+
+def _caused_by(exc: BaseException, cls: type[BaseException]) -> bool:
+    """True if ``cls`` is anywhere in the chain. requests wraps the socket error several layers
+    deep (ConnectionError -> MaxRetryError -> NewConnectionError -> ConnectionRefusedError)."""
+    todo, seen = [exc], set()
+    while todo:
+        err = todo.pop()
+        if id(err) in seen:
+            continue
+        seen.add(id(err))
+        if isinstance(err, cls):
+            return True
+        linked = (err.__cause__, err.__context__, getattr(err, "reason", None), *err.args)
+        todo.extend(x for x in linked if isinstance(x, BaseException))
+    return False
 
 
 def declared_charset(content_type: str | None, body: bytes) -> str | None:
@@ -130,7 +181,7 @@ class FixtureTransport:
         if status_file.exists():
             spec = status_file.read_text(encoding="utf-8").strip()
             if spec == "timeout":
-                raise TransportError(f"timeout after {timeout}s")
+                raise TransportError(f"timeout after {timeout}s", kind="timeout")
             return HttpResponse(url, int(spec), {"Content-Type": "text/html"}, "")
         is_robots = base.name == "robots"
         file = base.with_name(base.name + (".txt" if is_robots else ".html"))
@@ -179,7 +230,7 @@ def check_public_host(url: str, resolver: Callable[..., list] = socket.getaddrin
         try:
             infos = resolver(host, port, proto=socket.IPPROTO_TCP)
         except (OSError, UnicodeError) as exc:  # socket.gaierror is an OSError
-            raise TransportError(f"DNS lookup failed for {host}") from exc
+            raise TransportError(f"DNS lookup failed for {host}", kind="dns") from exc
         addresses = [ipaddress.ip_address(str(info[4][0]).split("%", 1)[0]) for info in infos]
     for ip in addresses:
         if not is_public_ip(ip):
@@ -208,6 +259,7 @@ class FetchResult:
     from_cache: bool = False
     error: str | None = None
     skipped: str | None = None  # e.g. "robots_disallowed"
+    error_kind: str | None = None  # TransportError.kind, for network errors only
 
     @property
     def ok(self) -> bool:
@@ -251,12 +303,17 @@ class PoliteFetcher:
             except UnsafeHostError as exc:
                 return FetchResult(url, current, error=f"blocked: {exc}")
             except TransportError as exc:
-                return FetchResult(url, current, error=f"network error: {exc}")
+                return FetchResult(url, current, error=f"network error: {exc}", error_kind=exc.kind)
             policy = self.robots_for(current)
             if policy.network_error:
                 # Nothing answered on this origin. Still a full disallow (RFC 9309), but report
                 # it as a network failure so the caller may try the plain-HTTP origin instead.
-                return FetchResult(url, current, error="network error: site unreachable")
+                return FetchResult(
+                    url,
+                    current,
+                    error="network error: site unreachable",
+                    error_kind=policy.error_kind,
+                )
             if not policy.allowed(current):
                 self.stats["robots_blocked"] += 1
                 return FetchResult(url, current, skipped=f"blocked by {policy.reason}")
@@ -268,7 +325,7 @@ class PoliteFetcher:
             except UnsafeHostError as exc:  # DNS answer changed since the check above
                 return FetchResult(url, current, error=f"blocked: {exc}")
             except TransportError as exc:
-                return FetchResult(url, current, error=f"network error: {exc}")
+                return FetchResult(url, current, error=f"network error: {exc}", error_kind=exc.kind)
 
             if resp.status in (301, 302, 303, 307, 308) and resp.headers.get("Location"):
                 current = urljoin(current, resp.headers["Location"])
@@ -292,6 +349,7 @@ class PoliteFetcher:
         if cached is not None:
             policy = RobotsPolicy.from_status(cached["status"], cached["text"], ua)
         else:
+            error_kind = None
             try:
                 # Robots fetch is itself rate-limited, but has no policy to consult yet.
                 resp = self._get_with_retries(robots_url, None)
@@ -301,14 +359,14 @@ class PoliteFetcher:
                     loc = urljoin(robots_url, resp.headers.get("Location", ""))
                     resp = self._get_with_retries(loc, None)
                     status, text = resp.status, resp.text
-            except TransportError:
-                status, text = None, ""
+            except TransportError as exc:
+                status, text, error_kind = None, "", exc.kind
             except UnsafeHostError as exc:
                 # e.g. robots.txt redirecting to an internal address: stay away from the site
                 policy = RobotsPolicy(ua, "disallow_all", f"robots.txt redirect blocked ({exc})")
                 self._robots[origin] = policy
                 return policy
-            policy = RobotsPolicy.from_status(status, text, ua)
+            policy = RobotsPolicy.from_status(status, text, ua, error_kind)
             if self.cache is not None and status is not None and status < 500:
                 self.cache.set(f"robots:{origin}", {"status": status, "text": text})
         self._robots[origin] = policy
@@ -347,8 +405,8 @@ class PoliteFetcher:
             try:
                 self._check_host(url)  # every attempt: DNS answers can change between tries
                 resp = self.transport.get(url, headers, self.settings.timeout_seconds)
-            except TransportError:
-                if last_try:
+            except TransportError as exc:
+                if last_try or not exc.retryable:
                     raise
                 self.stats["retries"] += 1
                 self.sleep(self._backoff(attempt, None))
