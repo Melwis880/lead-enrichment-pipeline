@@ -99,7 +99,7 @@ One entry per architecture or security decision, written when the decision is ma
 ## 2026-10-09 - Scoring is plain rules in YAML, not a model
 - **Decision:** `config/icp.yaml` holds points for industry, size, location, verified contact
   channel and keywords; the score is their sum clamped to 0-100, mapped to tiers. Each rule
-  writes a human-readable reason (`+30 size 2-10`). Fewer than 2 known core fields (industry,
+  writes a human-readable reason (`size 2-10 (+30)`). Fewer than 2 known core fields (industry,
   size, location) gives tier `review` instead of a misleadingly low score. Flagged fields score 0.
 - **Alternatives:** Ask the LLM for a fit score; a trained model.
 - **Why:** The sales team must be able to read and change why a lead ranks where it does. There is
@@ -126,3 +126,82 @@ One entry per architecture or security decision, written when the decision is ma
   total is reported as "politeness delay (simulated)". Fixture runs use separate cache folders.
 - **Alternatives:** Really sleep (a 13-company demo would take 70+ s for nothing).
 - **Why:** Keeps demo and tests fast while still reporting what a live run would add.
+
+## 2026-10-10 - Security audit: response bodies are bounded by bytes and wall-clock time
+- **Decision:** Bodies are read with urllib3 `read1` in a loop that checks a byte cap (applied
+  after decompression) and an overall deadline (`fetch.deadline_seconds`, 20 s). Decoding uses the
+  declared charset or UTF-8, falling back to UTF-8 with `errors="replace"` on `LookupError` /
+  `UnicodeError`. `Retry-After` is honoured only if it matches `[0-9]{1,5}`.
+- **Alternatives:** `iter_content` with a time check between chunks (a chunk read blocks until
+  64 KiB arrive, so a slow drip defeats it); a watchdog thread closing the socket (works, but
+  harder to reason about); `requests`' `apparent_encoding` (re-reads the whole remaining stream).
+- **Why:** One hostile or broken site must not stall or crash a batch of 100.
+
+## 2026-10-10 - Unexpected errors fail one company; finished work is always written
+- **Decision:** `run_pipeline` catches `Exception` per company (`status=internal_error`), still
+  re-raising `FatalExtractorError`. Results are appended to a caller-owned list, so on Ctrl-C or a
+  fatal error the CLI still writes CSV, summary and stats for finished companies, marked as
+  interrupted (exit 130 on Ctrl-C).
+- **Alternatives:** Write the CSV incrementally row by row (sorting by tier then needs a second
+  pass); let exceptions propagate (previous behaviour).
+- **Why:** A crash in company 87 must not cost companies 1-86.
+
+## 2026-10-10 - SSRF guard: resolve and check before every request
+- **Decision:** Before each request (pages, robots.txt, every redirect hop, every retry) the host
+  is resolved; the request is refused unless every address is globally routable unicast. IPv6
+  forms embedding IPv4 (mapped, 6to4, NAT64) are judged by the embedded address. Only http/https.
+  IP-literal hosts in the input CSV are skipped. Fixture runs (no network) disable the guard.
+- **Alternatives:** Connect to the checked IP (closes DNS rebinding, but needs a custom
+  `requests` adapter that keeps SNI and certificate checks on the hostname); an allowlist of
+  domains (defeats the purpose of the tool); rely on running in an isolated network.
+- **Why:** Redirects and DNS are attacker-controlled; without the check a listed site could make
+  the tool fetch `169.254.169.254` or an intranet page and feed it to the LLM and the report. The
+  remaining rebinding window is documented in the README; pinning is the next step if the tool
+  runs anywhere with sensitive internal services.
+
+## 2026-10-10 - Everything in summary.md is escaped; logs carry only validated media types
+- **Decision:** `_md` escapes backslash, `&`, `<`, `>`, backticks, brackets and pipes and is
+  applied to every field. Error messages include only a media type that matches
+  `[\w.+-]+/[\w.+-]+`. The n8n workflow posts only the exit code on failure, not log lines.
+- **Alternatives:** Escape only LLM output (header text and company names also reach Slack);
+  post the CSV instead of a summary.
+- **Why:** The summary is posted to a team Slack channel; a site could otherwise trigger
+  `<!channel>` or plant a disguised link.
+
+## 2026-10-10 - robots.txt matching via protego
+- **Decision:** Use protego for rule matching (longest match, `*`, `$`); keep our own RFC 9309
+  status-code handling around it.
+- **Alternatives:** `urllib.robotparser` (first-match, no wildcards on Python 3.11/3.12; CPython
+  3.13.16 behaves differently, so results depended on the Python version); our own matcher.
+- **Why:** Same, standard behaviour on every supported Python; protego is small and maintained
+  by the Scrapy project.
+
+## 2026-10-10 - No raw HTML at rest
+- **Decision:** The page cache stores only the parsed page (redacted visible text, title, links,
+  role mailboxes), keyed with `PARSER_VERSION` so weaker-redacted entries are not reused after a
+  parser change. Cache folders are `0700`, files `0600`. robots.txt files are still cached.
+- **Alternatives:** Keep raw HTML in a `0700` folder (personal emails would sit on disk for a
+  week); no page cache (re-hits sites on every run).
+- **Why:** Personal data removed before the LLM call should not be kept on disk either.
+
+## 2026-10-10 - Redaction covers plus-addressing, Unicode and common obfuscations
+- **Decision:** Any local part containing `+` is personal (`sales+jane.smith@`). The email
+  pattern is Unicode-aware (`jane@müller.de`). Bracketed obfuscations (`[at]`, `(at)`, `{at}`,
+  `[dot]` ...) are recognised; the plain-word form (`jane at shop dot com`) only when the word
+  "dot" is present, to avoid redacting ordinary sentences like "visit us at Wapping Wharf.".
+- **Alternatives:** Strip only the `+tag` (keeps `sales` as a role box, but the tag can be a
+  name); redact every "x at y" phrase (too many false positives).
+- **Why:** These forms are common on small-business sites precisely to hide personal addresses.
+
+## 2026-10-10 - Small hardening decisions
+- **`.env` allowlist:** only `ANTHROPIC_API_KEY`, `ENRICH_MODEL`, `MOCK_LLM` are read, so a
+  planted `.env` cannot set `HTTPS_PROXY`, `ANTHROPIC_BASE_URL` or `PYTHONPATH`.
+- **`off_domain_email`:** a role address only counts as the company's verified contact if it is
+  on the company domain or a subdomain (compared in punycode); agency or free-mail addresses are
+  flagged.
+- **`insecure_transport`:** pages read over the plain-HTTP fallback are marked, and contact
+  channels seen only there are flagged `insecure_source`, because they could be altered in
+  transit. An unreachable robots.txt is reported as a network error (still no request to the
+  page) so the HTTP fallback can run; before, such sites were mislabelled `skipped_robots`.
+- **CI and dependencies:** `persist-credentials: false` on checkout; upper bounds on every
+  dependency. SHA-pinning actions and a lockfile were explicitly left out of scope for now.

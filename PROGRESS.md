@@ -54,21 +54,21 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] PR opened with summary (draft until the real-mode run is done)
 
 ## Phase 10 - Security audit fixes (2026-10-10)
-- [ ] 1. Robustness: body deadline + byte cap, safe decoding, strict Retry-After, per-company
+- [x] 1. Robustness: body deadline + byte cap, safe decoding, strict Retry-After, per-company
       `internal_error`, partial outputs on interrupt; tests for utf8mb4, missing Content-Type,
       non-ASCII-digit Retry-After, oversized body, slow drip
-- [ ] 2. SSRF: reject non-public addresses on every hop; reject IP-literal input; tests; document
+- [x] 2. SSRF: reject non-public addresses on every hop; reject IP-literal input; tests; document
       DNS-rebinding gap
-- [ ] 3. Slack/Markdown injection: validated media type in errors; escape all summary fields; tests
-- [ ] 4. robots.txt via protego (longest match, `*`, `$`); tests
-- [ ] 5. No raw HTML at rest: cache parsed, redacted pages only; cache dirs 0700; README matches
-- [ ] 6. Redaction gaps: plus-addressing, internationalised domains, obfuscated forms; tests
-- [ ] 7. `.env` loader allowlist
-- [ ] 8. `off_domain_email` flag
-- [ ] 9. `insecure_transport` column; no contact channels from HTTP pages
-- [ ] 10. CI `persist-credentials: false`; dependency upper bounds
-- [ ] 11. README: keyword points are self-reported by the site
-- [ ] BUILD_LOG security review section, DECISIONS entries, PR description updated
+- [x] 3. Slack/Markdown injection: validated media type in errors; escape all summary fields; tests
+- [x] 4. robots.txt via protego (longest match, `*`, `$`); tests
+- [x] 5. No raw HTML at rest: cache parsed, redacted pages only; cache dirs 0700; README matches
+- [x] 6. Redaction gaps: plus-addressing, internationalised domains, obfuscated forms; tests
+- [x] 7. `.env` loader allowlist
+- [x] 8. `off_domain_email` flag
+- [x] 9. `insecure_transport` column; no contact channels from HTTP pages
+- [x] 10. CI `persist-credentials: false`; dependency upper bounds
+- [x] 11. README: keyword points are self-reported by the site
+- [x] BUILD_LOG security review section, DECISIONS entries, PR description updated
 
 ## Current state (2026-10-09)
 
@@ -76,7 +76,10 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - Full pipeline: polite fetching, parsing + redaction, Claude extraction with structured
   outputs, per-field validation with flags, YAML scoring, CSV/Markdown/JSON outputs, CLI with
   `--dry-run`, `--html-fixtures`, `--limit`, `--no-cache`, `MOCK_LLM=1`.
-- 92 offline tests passing on Python 3.11, 3.12, 3.13 locally and in GitHub Actions; ruff clean.
+- Security audit (2026-10-10): all 11 items fixed (robustness, SSRF guard, Slack/Markdown
+  escaping, protego robots, no raw HTML at rest, redaction gaps, `.env` allowlist,
+  `off_domain_email`, `insecure_transport`, CI/dependency hardening, README note).
+- 178 offline tests passing on Python 3.11, 3.12, 3.13; ruff clean.
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 
@@ -94,3 +97,6 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
    check 20 rows by hand for field accuracy.
 3. Time the manual process on ~10 companies to replace the labeled 6-minute estimate.
 4. Import and test the n8n workflow.
+5. Close the DNS-rebinding window (connect to the checked IP) before running on a network with
+   sensitive internal services; consider an overall deadline for the header phase too.
+6. Out of scope for now, by request: SHA-pinning GitHub Actions, a lockfile.
