@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-import re
 import sys
+import unicodedata
 from pathlib import Path
 
 import click
@@ -97,7 +97,7 @@ def run(
     if not companies:
         raise click.ClickException(f"no companies to process in {input_csv}")
     for w in warnings:
-        click.secho(f"warning: {w}", fg="yellow", err=True)
+        click.secho(f"warning: {_printable(w)}", fg="yellow", err=True)
 
     llm_mode = (
         "mock LLM (saved fixtures)" if settings.mock_llm else f"Claude API ({settings.llm.model})"
@@ -200,21 +200,24 @@ def run(
         )
         click.echo(f"Wrote {csv_path}, {summary_path}, {stats_path}")
     if fatal is not None:
-        raise click.ClickException(str(fatal)) from fatal
+        raise click.ClickException(_printable(str(fatal))) from fatal
     if interrupted:
-        click.secho(stats.interrupted, fg="yellow", err=True)
+        click.secho(_printable(stats.interrupted), fg="yellow", err=True)
         sys.exit(130)
     if not any(r.status == "ok" for r in records):
         sys.exit(1)
 
 
-CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# Control (Cc), format (Cf: e.g. U+202E right-to-left override, zero-width characters) and
+# line/paragraph separators (Zl, Zp).
+UNPRINTABLE_CATEGORIES = frozenset({"Cc", "Cf", "Zl", "Zp"})
 
 
 def _printable(text: str) -> str:
-    """Site- and input-controlled text with control characters replaced: an ESC sequence in an
-    error message must not be able to reset or rewrite the operator's terminal."""
-    return CONTROL_CHARS_RE.sub("?", text)
+    """Site- and input-controlled text with unprintable characters replaced: an ESC sequence in
+    a company name or error must not reset or rewrite the operator's terminal, and a
+    right-to-left override must not disguise what is printed."""
+    return "".join("?" if unicodedata.category(ch) in UNPRINTABLE_CATEGORIES else ch for ch in text)
 
 
 def _progress(i: int, n: int, record: LeadRecord) -> None:
@@ -243,7 +246,7 @@ def _print_plan(companies, settings, icp_path: Path, mode: str) -> None:
     click.echo(f"Mode:       {mode}")
     click.echo(f"Companies:  {len(companies)}")
     for c in companies[:20]:
-        click.echo(f"  - {c.name}: https://{c.domain}/")
+        click.echo(_printable(f"  - {c.name}: https://{c.domain}/"))
     if len(companies) > 20:
         click.echo(f"  ... and {len(companies) - 20} more")
     click.echo(

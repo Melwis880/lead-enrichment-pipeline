@@ -588,3 +588,18 @@ def test_pages_cached_before_canonical_links_are_not_reused(tmp_path):
     cache = JsonDiskCache(tmp_path)
     cache.set("parsed-3:https://cliftonpaws.example/", {"page": {"url": "stale"}})
     assert cache.get(f"parsed-{PARSER_VERSION}:https://cliftonpaws.example/") is None
+
+
+def test_dry_run_and_warnings_never_print_control_characters(in_tmp):
+    csv_file = in_tmp / "evil.csv"
+    csv_file.write_text(
+        "company,website\nEvil\x1b]0;PWNED\x07 Ltd,shop.example\nAgain‮Ltd,shop.example\n",
+        encoding="utf-8",
+    )
+    args = ["run", str(csv_file), "--dry-run", "--config", str(ROOT / "config" / "settings.yaml")]
+    args += ["--icp", str(ROOT / "config" / "icp.yaml")]
+    result = CliRunner().invoke(main, args, env={"MOCK_LLM": "1"})
+    assert result.exit_code == 0, result.output
+    for bad in ("\x1b", "\x07", "‮"):
+        assert bad not in result.output
+    assert "Evil?]0;PWNED? Ltd" in result.output
