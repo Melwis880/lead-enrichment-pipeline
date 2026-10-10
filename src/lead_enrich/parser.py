@@ -43,7 +43,7 @@ EXCLUDED_HINTS = ("team", "staff", "people", "careers", "jobs", "login", "cart",
 
 REDACTED_EMAIL = "[personal email removed]"
 # Bump when parsing or redaction changes, so cached parsed pages are not reused.
-PARSER_VERSION = "3"
+PARSER_VERSION = "4"  # 4: canonical (punycode, fixed-point) link URLs
 STRIP_TAGS = ("script", "style", "noscript", "svg", "iframe", "template", "canvas")
 
 

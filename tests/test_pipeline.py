@@ -576,3 +576,15 @@ def test_progress_line_never_prints_control_characters(capsys):
     out = capsys.readouterr().out
     assert "\x1b" not in out and "\x07" not in out
     assert "Evil?c Ltd" in out
+
+
+def test_pages_cached_before_canonical_links_are_not_reused(tmp_path):
+    # A homepage cached by version 3 could hold a raw backslash-host link that the old parser
+    # counted as same-site; version 4 must parse the page again instead of reusing it.
+    from lead_enrich.cache import JsonDiskCache
+    from lead_enrich.parser import PARSER_VERSION
+
+    assert PARSER_VERSION != "3"
+    cache = JsonDiskCache(tmp_path)
+    cache.set("parsed-3:https://cliftonpaws.example/", {"page": {"url": "stale"}})
+    assert cache.get(f"parsed-{PARSER_VERSION}:https://cliftonpaws.example/") is None
