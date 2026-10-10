@@ -151,7 +151,9 @@ class PageSource:
         return result, page
 
 
-# Network failures on https:// after which plain http:// is worth one try.
+# Network failures on https:// after which plain http:// is worth one try. Not "tls_cert": a
+# certificate that fails verification is what an attacker in the middle produces, and falling
+# back would hand them the page.
 HTTP_FALLBACK_KINDS = frozenset({"tls", "refused"})
 
 

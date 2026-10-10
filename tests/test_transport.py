@@ -2,15 +2,24 @@
 
 import gzip
 import socket
+import ssl
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
+import requests
+import urllib3
 
 from lead_enrich.config import FetchSettings, Settings
 from lead_enrich.extractors import MockExtractor
-from lead_enrich.fetcher import PoliteFetcher, RequestsTransport, TransportError, safe_codec
+from lead_enrich.fetcher import (
+    PoliteFetcher,
+    RequestsTransport,
+    TransportError,
+    safe_codec,
+    tls_error_kind,
+)
 from lead_enrich.pipeline import Company, enrich_company
 from lead_enrich.scoring import ICP
 
@@ -274,3 +283,21 @@ def test_gzip_body_is_decoded(server):
 
 def test_gzip_bomb_is_capped_after_decompression(server):
     assert len(get(server, "/gzip-bomb", max_bytes=100_000).text) == 100_000
+
+
+def _wrapped_ssl_error(inner: BaseException) -> requests.exceptions.SSLError:
+    # The chain requests really raises: SSLError -> MaxRetryError -> urllib3 SSLError -> ssl error.
+    reason = urllib3.exceptions.SSLError(inner)
+    return requests.exceptions.SSLError(
+        urllib3.exceptions.MaxRetryError(None, "https://x.example/", reason=reason)
+    )
+
+
+def test_certificate_verification_failure_is_its_own_kind():
+    cert = ssl.SSLCertVerificationError(1, "certificate verify failed: certificate has expired")
+    assert tls_error_kind(_wrapped_ssl_error(cert)) == "tls_cert"
+
+
+def test_other_tls_failures_stay_tls():
+    handshake = ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number")
+    assert tls_error_kind(_wrapped_ssl_error(handshake)) == "tls"

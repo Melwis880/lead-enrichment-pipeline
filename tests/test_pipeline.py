@@ -410,7 +410,8 @@ def test_contact_channels_from_plain_http_pages_are_not_accepted(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "https_failure,falls_back", [("tls", True), ("refused", True), ("timeout", False)]
+    "https_failure,falls_back",
+    [("tls", True), ("refused", True), ("timeout", False), ("tls_cert", False)],
 )
 def test_plain_http_is_tried_only_after_tls_failure_or_refusal(https_failure, falls_back):
     settings = Settings()

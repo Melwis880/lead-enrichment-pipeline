@@ -6,6 +6,7 @@ import codecs
 import ipaddress
 import re
 import socket
+import ssl
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -30,19 +31,41 @@ RETRY_AFTER_RE = re.compile(r"[0-9]{1,5}")
 # Charsets a web page may declare. Anything else (punycode, idna, utf-7, unicode_escape, ...)
 # decodes as UTF-8: some text codecs are quadratic on hostile input, and the deadline above
 # only bounds the download, not the decoding.
-WEB_CODECS = frozenset({
-    "utf-8", "utf-16", "utf-16-le", "utf-16-be", "ascii", "iso8859-1", "iso8859-2", "iso8859-15",
-    "cp1250", "cp1251", "cp1252", "cp1254", "koi8-r", "koi8-u", "shift_jis", "euc_jp",
-    "iso2022_jp", "gb2312", "gbk", "gb18030", "big5", "euc_kr",
-})
+WEB_CODECS = frozenset(
+    {
+        "utf-8",
+        "utf-16",
+        "utf-16-le",
+        "utf-16-be",
+        "ascii",
+        "iso8859-1",
+        "iso8859-2",
+        "iso8859-15",
+        "cp1250",
+        "cp1251",
+        "cp1252",
+        "cp1254",
+        "koi8-r",
+        "koi8-u",
+        "shift_jis",
+        "euc_jp",
+        "iso2022_jp",
+        "gb2312",
+        "gbk",
+        "gb18030",
+        "big5",
+        "euc_kr",
+    }
+)
 
 
 class TransportError(Exception):
     """Network-level failure (DNS, connection, timeout).
 
-    ``kind`` is "timeout", "tls", "refused", "dns" or "other"; the pipeline uses it to decide
-    whether trying plain HTTP makes sense. ``retryable`` is False where another try a few seconds
-    later almost never helps: a connect timeout or a body that blew the overall deadline.
+    ``kind`` is "timeout", "tls", "tls_cert", "refused", "dns" or "other"; the pipeline uses it
+    to decide whether trying plain HTTP makes sense. ``retryable`` is False where another try a
+    few seconds later almost never helps: a connect timeout or a body that blew the overall
+    deadline.
     """
 
     def __init__(self, message: str = "", *, kind: str = "other", retryable: bool = True) -> None:
@@ -122,13 +145,19 @@ class RequestsTransport:
                 f"connect timeout after {connect_timeout}s", kind="timeout", retryable=False
             ) from exc
         except requests.exceptions.SSLError as exc:
-            raise TransportError("TLS error", kind="tls") from exc
+            raise TransportError("TLS error", kind=tls_error_kind(exc)) from exc
         except (requests.Timeout, urllib3.exceptions.TimeoutError, TimeoutError) as exc:
             # Read timeout: the server accepted the connection, so it may just be busy.
             raise TransportError(f"timeout after {timeout}s", kind="timeout") from exc
         except (requests.RequestException, urllib3.exceptions.HTTPError, OSError) as exc:
             kind = "refused" if _caused_by(exc, ConnectionRefusedError) else "other"
             raise TransportError(type(exc).__name__, kind=kind) from exc
+
+
+def tls_error_kind(exc: BaseException) -> str:
+    """ "tls_cert" when the certificate failed verification (expired, wrong host, untrusted: the
+    typical sign of someone in the middle), else "tls" (no TLS on the port, broken handshake)."""
+    return "tls_cert" if _caused_by(exc, ssl.SSLCertVerificationError) else "tls"
 
 
 def _caused_by(exc: BaseException, cls: type[BaseException]) -> bool:
