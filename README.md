@@ -151,6 +151,12 @@ Every website, header and model answer is treated as untrusted input.
   is resolved and the request is refused unless *every* address is globally routable unicast
   (`ipaddress.is_global`, with IPv4-mapped, 6to4 and NAT64 forms judged by the embedded IPv4
   address). Only `http`/`https` URLs are followed. IP-literal hosts in the input CSV are rejected.
+  Every URL (start URL, redirect target, link) is first converted to the exact form `requests`
+  sends, and the check, the same-site test and the request all use that form, so tricks such as
+  `http://10.0.0.1\@shop.example/` (one host to Python's URL parser, another to urllib3) or
+  `straße.example` (IDNA 2003 vs UTS 46) cannot point the check and the connection apart.
+- **The environment is not trusted.** The HTTP session ignores `~/.netrc`, proxy and CA-bundle
+  variables (`trust_env = False`), so no saved credentials can be attached to a request.
 - **One bad site cannot stall or crash the batch.** Each response body is read against a byte
   cap (after decompression, so gzip bombs are capped too) and an overall deadline
   (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. A charset missing from
@@ -169,6 +175,9 @@ Every website, header and model answer is treated as untrusted input.
   output, config text) is escaped: `&`, `<`, `>` (so no `<!channel>` or `<url|label>` in Slack),
   backticks, brackets and pipes. Error messages carry only a validated media type, never raw
   header text. CSV cells starting with `= + - @` are prefixed with `'` (formula injection).
+  Progress lines in the terminal replace control characters, so an ESC sequence in a host or
+  company name cannot reset or rewrite the terminal. Slack still turns a bare URL in a model's
+  description into a link; the text is escaped, not stripped of URLs.
 
 ## Limitations
 

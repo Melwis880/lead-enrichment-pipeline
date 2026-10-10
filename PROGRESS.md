@@ -98,6 +98,16 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
       pages used without a new robots.txt check
 - [ ] Lockfile / hashed runtime dependencies, DNS rebinding: still out of scope
 
+## Phase 13 - Full re-audit before merge (2026-10-10)
+- [x] HTTP session ignores the environment (`trust_env = False`): no `~/.netrc` credentials sent
+- [x] One canonical URL form (requests' prepared URL) for the SSRF check, same-site test, robots
+      origin and request: closes the `\@` host trick and the IDNA 2003 vs UTS 46 mismatch
+- [x] `requests>=2.32.4`, `urllib3>=2.6.3` (CVE-2024-47081, CVE-2025-66471, CVE-2025-66418)
+- [x] Control characters replaced in progress output; hosts quoted in errors
+- [x] Site text cannot open or close `<page>` blocks in the LLM document
+- [x] Fixture transport cannot read files outside its folder
+- [ ] DNS rebinding (connect to the checked IP), SHA-pinned Actions, lockfile: still out of scope
+
 ## Current state (2026-10-10)
 
 **Done**
@@ -113,7 +123,9 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - Security review of the optimization pass (2026-10-10): charset allowlist, no HTTP fallback
   after a certificate failure, LLM cache TTL and startup pruning, parser version in the LLM
   cache key, positive timeouts.
-- 241 offline tests passing locally on Python 3.13; ruff 0.17.0 clean.
+- Full re-audit before merge (2026-10-10): netrc leak, SSRF parser mismatch, CVE minimums,
+  terminal escapes, page-tag injection, fixture path traversal fixed.
+- 252 offline tests passing locally on Python 3.13; ruff 0.17.0 clean.
 - Mock-mode demo run end to end; output committed in `examples/demo-mock/`.
 - README, CASE_STUDY, DECISIONS, BUILD_LOG, n8n workflow.
 

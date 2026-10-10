@@ -159,6 +159,27 @@ fixed, each with a test that fails on the previous code.
 - "The optimization that fixed garbled text also opened a door: if you trust the page to name
   its own charset, it can name one that takes minutes to decode."
 
+## Full re-audit before merge (2026-10-10)
+A third audit of the whole branch found two high issues that both earlier passes missed. Both
+come from the same root: two parsers reading one URL differently.
+- **`~/.netrc` credentials to an attacker (high).** `requests.Session` attaches saved netrc
+  credentials, choosing them by `urlparse`'s host, while urllib3 connects to the host it parses.
+  `http://attacker.example\@github.com/` is github.com to the first and attacker.example to the
+  second. A local test with a dummy netrc showed `Authorization: Basic ...` arriving at the
+  wrong server. Fix: `session.trust_env = False`.
+- **SSRF guard bypass (high).** The guard checked the host with `urlsplit`; requests sent the URL
+  to the host urllib3 parsed. A homepage link `http://169.254.169.254\@shop.example/../latest/`
+  passed the same-site check and the guard as shop.example, then became a GET of the metadata
+  address. A German `ß` in a hostname gave a second mismatch (IDNA 2003 for the DNS check, UTS 46
+  for the connection). Fix: convert every URL once to requests' prepared form and use only that.
+  Seven new tests fail on the old code.
+- Also: dependency minimums raised past three CVEs, control characters replaced in terminal
+  output, `<page>` tags escaped in the LLM document, fixture reads kept inside their folder.
+
+**Post hook**
+- "My SSRF guard and my HTTP library disagreed about which host was in the same URL. One
+  backslash was enough to send a request to the cloud metadata address."
+
 ## Measured numbers (demo data)
 All from the mock demo: 13 invented companies, saved HTML, hand-written mock LLM answers.
 Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`.

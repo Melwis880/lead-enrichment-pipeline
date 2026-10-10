@@ -298,3 +298,14 @@ One entry per architecture or security decision, written when the decision is ma
 - **Why:** Validated results can still contain names from free text, and entries that are never
   read again would otherwise stay on disk for good.
 
+## 2026-10-10 - One canonical URL form; the HTTP session ignores the environment
+- **Decision:** Every URL is converted to `requests.Request("GET", url).prepare().url` before it
+  is checked, compared or fetched (start URL, each redirect, each link, robots.txt redirect).
+  URLs that cannot be prepared are blocked as invalid. The session sets `trust_env = False`.
+- **Alternatives:** Reject URLs containing backslashes (misses the IDNA case and whatever the
+  next parser difference is); keep `trust_env` and only fix URLs (netrc, proxy and CA variables
+  would still be read from the operator's environment for no benefit).
+- **Why:** The guard and the connection must read the same host. Using the library's own
+  prepared form removes the class of bug rather than one instance. The tool needs no netrc,
+  proxy or custom CA settings.
+
