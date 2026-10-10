@@ -426,6 +426,7 @@ fixtures for CPU; on live runs, the per-company `fetch_s` / `llm_s` breakdown fr
 from collections.abc import Mapping
 from requests.structures import CaseInsensitiveDict
 
+
 @dataclass
 class HttpResponse:
     url: str
@@ -445,12 +446,14 @@ as they are.
 ```python
 from bs4.dammit import EncodingDetector
 
+
 def body_encoding(content_type: str | None, body: bytes) -> str | None:
     """Declared charset: the Content-Type header if it names one, else <meta> in the first 4 KB.
     None means UTF-8. Never requests' ISO-8859-1 default for text/*."""
     if content_type and "charset=" in content_type.lower():
         return requests.utils.get_encoding_from_headers({"content-type": content_type})
     return EncodingDetector.find_declared_encoding(body[:4096], is_html=True)
+
 
 # in RequestsTransport.get:
 data = bytes(body[: self.max_bytes])
@@ -485,6 +488,8 @@ except TransportError as exc:
 def get(self, key: str, max_age_hours: float | None = None) -> dict[str, Any] | None:
     ttl = self.ttl_seconds if max_age_hours is None else max_age_hours * 3600
     ...
+
+
 # fetcher.robots_for
 cached = self.cache.get(f"robots:{origin}", max_age_hours=self.settings.robots_cache_ttl_hours)
 ```
@@ -512,7 +517,8 @@ length.
 **F5: optional effort setting** (`config.py`, `extractors.py`)
 ```python
 class LLMSettings(BaseModel):
-    effort: str | None = None   # e.g. "low" for claude-haiku-5-5; leave unset for Haiku 4.5
+    effort: str | None = None  # e.g. "low" for claude-haiku-5-5; leave unset for Haiku 4.5
+
 
 output_config = {"format": {"type": "json_schema", "schema": EXTRACTION_JSON_SCHEMA}}
 if self.settings.effort:
