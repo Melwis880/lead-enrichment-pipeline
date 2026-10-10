@@ -174,6 +174,19 @@ def check_public_host(url: str, resolver: Callable[..., list] = socket.getaddrin
             raise UnsafeHostError(f"{host} resolves to non-public address {ip}")
 
 
+MEDIA_TYPE_RE = re.compile(r"[\w.+-]+/[\w.+-]+", re.ASCII)
+HTML_MEDIA_TYPES = {"text/html", "application/xhtml+xml"}
+
+
+def safe_media_type(content_type: str | None) -> str:
+    """The bare media type from a Content-Type header, or a fixed label. Header text is
+    attacker-controlled and ends up in reports, so nothing else from it is ever logged."""
+    if not content_type or not content_type.strip():
+        return "missing"
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type if MEDIA_TYPE_RE.fullmatch(media_type) else "invalid media type"
+
+
 @dataclass
 class FetchResult:
     url: str
@@ -248,9 +261,9 @@ class PoliteFetcher:
                 continue
             if resp.status != 200:
                 return FetchResult(url, current, resp.status, error=f"HTTP {resp.status}")
-            ctype = resp.headers.get("Content-Type", resp.headers.get("content-type", ""))
-            if "html" not in ctype.lower():
-                return FetchResult(url, current, resp.status, error=f"not HTML ({ctype or '?'})")
+            media_type = safe_media_type(resp.headers.get("Content-Type", ""))
+            if media_type not in HTML_MEDIA_TYPES:
+                return FetchResult(url, current, resp.status, error=f"not HTML ({media_type})")
             text = resp.text[: self.settings.max_page_bytes]
             if self.cache is not None:
                 self.cache.set(f"page:{current}", {"status": 200, "text": text})

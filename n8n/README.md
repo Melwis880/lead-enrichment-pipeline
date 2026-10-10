@@ -1,7 +1,9 @@
 # n8n workflow (optional)
 
 `enrich-weekly.json` runs the pipeline every Monday at 07:00 and posts `output/summary.md` to a
-Slack channel (or the error tail if the run failed).
+Slack channel. On failure it posts only the exit code; the log stays on the server, because log
+lines can contain text from the crawled sites. Every field in `summary.md` is escaped for Slack
+and Markdown (`&`, `<`, `>`, backticks, brackets).
 
 Status: written by hand against the n8n node formats; **not yet imported into a live n8n
 instance** (none was available in the build environment). Check node versions after import.

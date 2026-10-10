@@ -142,6 +142,10 @@ Every website, header and model answer is treated as untrusted input.
   back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
   marks that company `internal_error` and the run continues. If a run is interrupted (Ctrl-C) or
   stopped by a configuration error, the companies already finished are still written out.
+- **No Slack or Markdown injection.** Every field in `summary.md` (company names, errors, model
+  output, config text) is escaped: `&`, `<`, `>` (so no `<!channel>` or `<url|label>` in Slack),
+  backticks, brackets and pipes. Error messages carry only a validated media type, never raw
+  header text. CSV cells starting with `= + - @` are prefixed with `'` (formula injection).
 
 ## Limitations
 

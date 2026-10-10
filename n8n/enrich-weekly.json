@@ -7,7 +7,9 @@
           "interval": [
             {
               "field": "weeks",
-              "triggerAtDay": [1],
+              "triggerAtDay": [
+                1
+              ],
               "triggerAtHour": 7
             }
           ]
@@ -17,17 +19,23 @@
       "name": "Every Monday 07:00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
-        "command": "cd /opt/lead-enrichment-pipeline && . .venv/bin/activate && enrich run input/companies.csv > output/run.log 2>&1; status=$?; cat output/summary.md 2>/dev/null || tail -n 20 output/run.log; exit $status"
+        "command": "cd /opt/lead-enrichment-pipeline && . .venv/bin/activate && enrich run input/companies.csv > output/run.log 2>&1; status=$?; [ $status -eq 0 ] && cat output/summary.md; exit $status"
       },
       "id": "a1f0c6de-0002-4c1e-9d6a-000000000002",
       "name": "Run enrich CLI",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [240, 0],
+      "position": [
+        240,
+        0
+      ],
       "continueOnFail": true
     },
     {
@@ -38,14 +46,17 @@
           "value": "#sales-leads",
           "mode": "name"
         },
-        "text": "={{ $json.exitCode === 0 ? 'Weekly lead enrichment finished. Full list: output/enriched.csv\\n\\n' + $json.stdout : 'Lead enrichment FAILED (exit ' + $json.exitCode + ')\\n' + ($json.stdout || '') + ($json.stderr || '') }}",
+        "text": "={{ $json.exitCode === 0 ? 'Weekly lead enrichment finished. Full list: output/enriched.csv\\n\\n' + $json.stdout : 'Lead enrichment FAILED (exit ' + $json.exitCode + '). Details are in output/run.log on the server.' }}",
         "otherOptions": {}
       },
       "id": "a1f0c6de-0003-4c1e-9d6a-000000000003",
       "name": "Post summary to Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
-      "position": [480, 0],
+      "position": [
+        480,
+        0
+      ],
       "credentials": {
         "slackApi": {
           "id": "REPLACE_ME",
@@ -56,10 +67,26 @@
   ],
   "connections": {
     "Every Monday 07:00": {
-      "main": [[{ "node": "Run enrich CLI", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Run enrich CLI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Run enrich CLI": {
-      "main": [[{ "node": "Post summary to Slack", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Post summary to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

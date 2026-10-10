@@ -149,8 +149,24 @@ def write_stats(records: list[LeadRecord], stats: RunStats, path: Path) -> dict[
     return payload
 
 
+_MD_ESCAPES = [
+    ("\\", "\\\\"),  # first, so input cannot "un-escape" what follows
+    ("&", "&amp;"),  # Slack: &, < and > are the only characters it decodes
+    ("<", "&lt;"),  # kills <!channel>, <@U123>, <https://x|label>
+    (">", "&gt;"),
+    ("`", "\\`"),
+    ("[", "\\["),  # kills Markdown links and images
+    ("]", "\\]"),
+    ("|", "\\|"),  # table cells
+]
+
+
 def _md(text: object) -> str:
-    return str(text or "").replace("|", "\\|").replace("\n", " ")
+    """Make untrusted text inert in Markdown (GitHub) and Slack mrkdwn."""
+    out = " ".join(str(text if text is not None else "").split())
+    for raw, escaped in _MD_ESCAPES:
+        out = out.replace(raw, escaped)
+    return out
 
 
 def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Path) -> None:
@@ -159,14 +175,14 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
     lines = [
         "# Lead enrichment summary",
         "",
-        f"- Run started: {stats.started_at} (UTC)",
-        f"- Input: `{stats.input_path}` ({m['companies']} companies)",
-        f"- Mode: {stats.mode}",
-        f"- Model: `{stats.model}`",
-        f"- Ideal customer profile: {icp.name}",
+        f"- Run started: {_md(stats.started_at)} (UTC)",
+        f"- Input: {_md(stats.input_path)} ({m['companies']} companies)",
+        f"- Mode: {_md(stats.mode)}",
+        f"- Model: {_md(stats.model)}",
+        f"- Ideal customer profile: {_md(icp.name)}",
         "",
         *(
-            [f"> **{_md(stats.interrupted)}** Results below are partial.", ""]
+            [f"**Warning: {_md(stats.interrupted)}** Results below are partial.", ""]
             if stats.interrupted
             else []
         ),
@@ -174,11 +190,11 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
         "",
         "| Status | Companies |",
         "|---|---|",
-        *[f"| {k} | {v} |" for k, v in sorted(m["status_counts"].items())],
+        *[f"| {_md(k)} | {v} |" for k, v in sorted(m["status_counts"].items())],
         "",
         "| Tier | Companies |",
         "|---|---|",
-        *[f"| {t} | {m['tier_counts'].get(t, 0)} |" for t in [*icp.tiers, "review"]],
+        *[f"| {_md(t)} | {m['tier_counts'].get(t, 0)} |" for t in [*icp.tiers, "review"]],
         "",
         "## Top leads",
         "",
@@ -192,7 +208,7 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
         contact = (f["contact_email"].value or f["contact_form_url"].value) if f else None
         positive = [x for x in r.score.reasons if "(+0)" not in x and "tier=" not in x]
         lines.append(
-            f"| {i} | {_md(r.company.name)} | {r.score.tier} | {r.score.score} "
+            f"| {i} | {_md(r.company.name)} | {_md(r.score.tier)} | {r.score.score} "
             f"| {_md(f['industry'].value if f else '')} "
             f"| {_md(f['size_signal'].value if f else '')} "
             f"| {_md(where)} | {_md(contact) or 'none verified'} | {_md('; '.join(positive))} |"
@@ -205,10 +221,13 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
     for r in sorted(attention, key=lambda r: r.company.name.lower()):
         if r.status != "ok":
             lines.append(
-                f"- **{_md(r.company.name)}** ({r.company.domain}): {r.status} - {_md(r.error)}"
+                f"- **{_md(r.company.name)}** ({_md(r.company.domain)}): {_md(r.status)} - "
+                f"{_md(r.error)}"
             )
         else:
-            lines.append(f"- **{_md(r.company.name)}**: flagged {', '.join(r.enrichment.flags())}")
+            lines.append(
+                f"- **{_md(r.company.name)}**: flagged {_md(', '.join(r.enrichment.flags()))}"
+            )
 
     lines += [
         "",
@@ -228,7 +247,7 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
         f"{m['personal_emails_redacted']}",
     ]
     if stats.input_warnings:
-        lines += ["", "## Input warnings", "", *[f"- {w}" for w in stats.input_warnings]]
+        lines += ["", "## Input warnings", "", *[f"- {_md(w)}" for w in stats.input_warnings]]
     lines += [
         "",
         "_Public business information only. Flagged fields were left blank on purpose; check them "
