@@ -115,7 +115,10 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
   role-based mailboxes (`info@`, `hello@`, `contact@` ... fixed allowlist) or a contact form URL
   are output, and only if they literally appear on the company's own pages.
 - **Data minimisation before processing.** Every non-role email address is replaced with
-  `[personal email removed]` before page text is sent to the LLM. Team, staff, people and careers
+  `[personal email removed]` before page text is sent to the LLM or cached. This includes
+  plus-addressed role boxes (`sales+jane.smith@`), internationalised addresses (`jane@müller.de`)
+  and common obfuscations (`jane [at] shop [dot] example`, `jane(at)shop(dot)de`,
+  `jane at shop dot com`). Team, staff, people and careers
   pages are never fetched. At most 3 pages per company.
 - **Respect for site owners.** robots.txt is always obeyed (no off switch), the User-Agent names
   the bot and links to this repo, at least 2 s between requests per site, `Crawl-delay` and

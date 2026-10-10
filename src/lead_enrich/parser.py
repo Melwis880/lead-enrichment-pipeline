@@ -8,7 +8,21 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
-EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+# Unicode-aware: internationalised local parts and domains (jane@müller.de) are emails too.
+_LABEL = r"[^\W_](?:[\w-]*[^\W_])?"
+_TLD = r"(?:[^\W\d_]{2,}|xn--[\w-]+)"
+EMAIL_RE = re.compile(rf"(?<![\w.%+-])[\w.%+-]+@(?:{_LABEL}\.)+{_TLD}(?![\w-])")
+
+# Obfuscated forms: jane [at] shop [dot] example, jane(at)shop(dot)de, jane at shop dot com.
+_BR_AT = r"\s*[\[({<]\s*(?:at|@)\s*[\])}>]\s*"
+_BR_DOT = r"\s*(?:[\[({<]\s*(?:dot|\.)\s*[\])}>]|\.)\s*"
+OBFUSCATED_EMAIL_RE = re.compile(
+    rf"(?<![\w.+-])(?P<local>[\w.+-]+)"
+    rf"(?:{_BR_AT}{_LABEL}(?:{_BR_DOT}{_LABEL})*{_BR_DOT}{_TLD}"  # bracketed "at"
+    rf"|\s+at\s+{_LABEL}(?:\s+dot\s+{_LABEL})*\s+dot\s+{_TLD})"  # plain words: "dot" required
+    rf"(?![\w-])",
+    re.IGNORECASE,
+)
 
 # Role-based mailbox names. Anything else (jane@, j.smith@, ceo@...) is treated as personal
 # data and never leaves this module unredacted.
@@ -27,7 +41,7 @@ EXCLUDED_HINTS = ("team", "staff", "people", "careers", "jobs", "login", "cart",
 
 REDACTED_EMAIL = "[personal email removed]"
 # Bump when parsing or redaction changes, so cached parsed pages are not reused.
-PARSER_VERSION = "2"
+PARSER_VERSION = "3"
 STRIP_TAGS = ("script", "style", "noscript", "svg", "iframe", "template", "canvas")
 
 
@@ -73,8 +87,10 @@ def same_site(url: str, domain: str) -> bool:
 
 
 def is_generic_email(email: str) -> bool:
-    local = email.split("@", 1)[0].lower().split("+", 1)[0]
-    return local in GENERIC_LOCAL_PARTS
+    """Role mailbox from the allowlist. Plus-addressing (sales+jane.smith@) can name a person,
+    so any local part with "+" counts as personal."""
+    local = email.split("@", 1)[0].lower()
+    return "+" not in local and local in GENERIC_LOCAL_PARTS
 
 
 def redact_personal_emails(text: str) -> tuple[str, int]:
@@ -82,11 +98,13 @@ def redact_personal_emails(text: str) -> tuple[str, int]:
 
     def _sub(match: re.Match[str]) -> str:
         nonlocal count
-        if is_generic_email(match.group(0)):
+        local = match.groupdict().get("local") or match.group(0)
+        if is_generic_email(local + "@"):
             return match.group(0)
         count += 1
         return REDACTED_EMAIL
 
+    text = OBFUSCATED_EMAIL_RE.sub(_sub, text)
     return EMAIL_RE.sub(_sub, text), count
 
 

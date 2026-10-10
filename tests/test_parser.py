@@ -1,3 +1,5 @@
+import pytest
+
 from lead_enrich.parser import (
     REDACTED_EMAIL,
     build_llm_document,
@@ -5,6 +7,7 @@ from lead_enrich.parser import (
     is_generic_email,
     normalize_domain,
     parse_html,
+    redact_personal_emails,
 )
 
 HOME = """
@@ -40,7 +43,7 @@ def test_personal_emails_are_redacted_generic_kept():
 
 def test_generic_email_rules():
     assert is_generic_email("Info@Shop.example")
-    assert is_generic_email("hello+web@shop.example")
+    assert not is_generic_email("hello+web@shop.example")  # plus-addressing: see below
     assert not is_generic_email("jane@shop.example")
     assert not is_generic_email("j.smith@shop.example")
     assert not is_generic_email("ceo@shop.example")
@@ -96,3 +99,43 @@ def test_broken_html_does_not_crash():
     )
     assert "Unclosed" in page.text
     assert page.links[0].url == "https://a.example/about"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Write to sales+jane.smith@shop.example today",  # plus-addressing names a person
+        "Kontakt: jane@müller.de",  # internationalised domain
+        "Mail jürgen.weiß@bäckerei.example",  # internationalised local part and domain
+        "jane [at] shop [dot] example",
+        "jane(at)shop(dot)example",
+        "JANE [AT] SHOP [DOT] CO [DOT] UK",
+        "jane {at} shop.example",
+        "jane at shop dot example",
+        "jane [@] shop [.] example",
+    ],
+)
+def test_personal_email_variants_are_redacted(text):
+    redacted, count = redact_personal_emails(text)
+    assert count == 1, redacted
+    assert "jane" not in redacted.lower() and "jürgen" not in redacted
+    assert REDACTED_EMAIL in redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["info@müller.de", "hello [at] shop [dot] example", "office(at)shop(dot)example"],
+)
+def test_role_mailbox_variants_are_kept(text):
+    redacted, count = redact_personal_emails(text)
+    assert count == 0 and redacted == text
+
+
+def test_plus_addressing_is_never_generic():
+    assert not is_generic_email("sales+jane.smith@shop.example")
+    assert not is_generic_email("info+anything@shop.example")
+
+
+def test_ordinary_text_is_not_mistaken_for_an_email():
+    text = "Open at 7am. Visit us at Wapping Wharf. Call at noon. Price 3.50 at the till."
+    assert redact_personal_emails(text) == (text, 0)
