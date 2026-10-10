@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from .cache import JsonDiskCache
 from .config import Settings
 from .extractors import Extractor, FatalExtractorError, user_message
@@ -193,10 +195,25 @@ def _llm_cache_key(
             evidence.fingerprint(),
             min_confidence,
             VALIDATION_VERSION,
+            # Validation masks free text with the parser's redaction, so a better redaction
+            # (a PARSER_VERSION bump) must not reuse results cleaned by the old one.
+            PARSER_VERSION,
         ],
         sort_keys=True,
     )
     return LLM_CACHE_PREFIX + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _cached_enrichment(cache: JsonDiskCache | None, key: str | None) -> Enrichment | None:
+    """The cached validated result, or None. An entry that no longer fits the schema (written by
+    another version, or damaged) is a miss: the company is extracted again and the entry
+    overwritten, instead of failing on every run until someone deletes the cache."""
+    if cache is None or not key or not (hit := cache.get(key)):
+        return None
+    try:
+        return Enrichment.model_validate(hit["enrichment"])
+    except (KeyError, TypeError, ValidationError):
+        return None
 
 
 def enrich_company(
@@ -243,8 +260,9 @@ def enrich_company(
         )
         min_confidence = settings.validation.min_confidence
         key = _llm_cache_key(extractor, company, document, evidence, min_confidence)
-        if llm_cache is not None and key and (hit := llm_cache.get(key)):
-            record.enrichment = Enrichment.model_validate(hit["enrichment"])
+        cached = _cached_enrichment(llm_cache, key)
+        if cached is not None:
+            record.enrichment = cached
             record.llm_cached = True
         else:
             llm_started = time.monotonic()

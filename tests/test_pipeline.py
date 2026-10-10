@@ -532,3 +532,36 @@ def test_unknown_model_price_is_reported_as_unknown(in_tmp, monkeypatch):
     assert stats["cost_usd"] is None and stats["cost_per_100_companies_usd"] is None
     summary = (in_tmp / "out" / "summary.md").read_text()
     assert "LLM cost: unknown price for model claude-unlisted-model" in summary
+
+
+def test_llm_cache_misses_when_the_parser_changes(tmp_path, monkeypatch):
+    from lead_enrich import pipeline
+    from lead_enrich.cache import JsonDiskCache
+
+    cache = JsonDiskCache(tmp_path)
+    run_claude(Settings(), cache, CountingClient())
+    monkeypatch.setattr(pipeline, "PARSER_VERSION", pipeline.PARSER_VERSION + "-next")
+    client = CountingClient()
+    record = run_claude(Settings(), cache, client)
+    assert len(client.calls) == 1 and not record.llm_cached
+
+
+@pytest.mark.parametrize(
+    "bad_value", [{"enrichment": {"industry": "not an object"}}, {"something": "else"}]
+)
+def test_llm_cache_entry_that_no_longer_fits_is_a_miss_not_an_error(tmp_path, bad_value):
+    from lead_enrich.cache import JsonDiskCache
+
+    cache = JsonDiskCache(tmp_path)
+    run_claude(Settings(), cache, CountingClient())
+    [entry] = list(tmp_path.glob("*/*.json"))
+    data = json.loads(entry.read_text(encoding="utf-8"))
+    data["value"] = bad_value
+    entry.write_text(json.dumps(data), encoding="utf-8")
+
+    client = CountingClient()
+    record = run_claude(Settings(), cache, client)
+    assert record.status == "ok" and not record.llm_cached
+    assert len(client.calls) == 1
+    record_again = run_claude(Settings(), cache, CountingClient())
+    assert record_again.llm_cached  # the bad entry was overwritten
