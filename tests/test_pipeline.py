@@ -332,3 +332,71 @@ def test_cache_files_are_private(in_tmp):
     for p in (in_tmp / "cache").rglob("*"):
         mode = stat.S_IMODE(p.stat().st_mode)
         assert mode & 0o077 == 0, f"{p} is readable by group/others ({oct(mode)})"
+
+
+class HttpOnlyTransport:
+    """https fails at the network level; plain http serves a page with contact details."""
+
+    PAGE = (
+        "<html><body><p>Plain Shop. Email info@plain.example</p>"
+        "<form><input type='email'><textarea></textarea></form></body></html>"
+    )
+
+    def get(self, url, headers, timeout):
+        from lead_enrich.fetcher import HttpResponse, TransportError
+
+        if url.startswith("https://"):
+            raise TransportError("TLS handshake failed")
+        if url.endswith("robots.txt"):
+            return HttpResponse(url, 404, {"Content-Type": "text/plain"}, "")
+        return HttpResponse(url, 200, {"Content-Type": "text/html"}, self.PAGE)
+
+
+class PlainShopLLM:
+    label = "plain"
+
+    def extract(self, company, domain, document):
+        return ExtractionResult(
+            data={
+                "industry": {"value": "retail", "detail": None, "confidence": 0.9},
+                "description": {"value": "A shop.", "confidence": 0.9},
+                "size_signal": {"value": "2-10", "evidence": "x", "confidence": 0.9},
+                "location": {
+                    "city": "Bristol",
+                    "region": None,
+                    "country_code": "GB",
+                    "confidence": 0.9,
+                },
+                "products_services": {"value": ["Things"], "confidence": 0.9},
+                "contact_email": {"value": "info@plain.example", "confidence": 0.95},
+                "contact_form_url": {"value": "http://plain.example/", "confidence": 0.9},
+            }
+        )
+
+
+def test_contact_channels_from_plain_http_pages_are_not_accepted(tmp_path):
+    from lead_enrich.report import write_csv
+
+    settings = Settings()
+    fetcher = PoliteFetcher(
+        settings.fetch, HttpOnlyTransport(), sleep=lambda _s: None, host_check=None
+    )
+    record = enrich_company(
+        Company("Plain Shop", "plain.example"),
+        fetcher,
+        PlainShopLLM(),
+        settings,
+        load_icp(ROOT / "config" / "icp.yaml"),
+    )
+    assert record.status == "ok"
+    assert record.insecure_transport is True
+    assert record.enrichment.get("contact_email") is None
+    assert record.enrichment.get("contact_form_url") is None
+    assert "contact_email:insecure_source" in record.enrichment.flags()
+    assert "contact_form_url:insecure_source" in record.enrichment.flags()
+    assert "no verified contact channel (+0)" in record.score.reasons
+
+    write_csv([record], tmp_path / "out.csv")
+    with (tmp_path / "out.csv").open() as fh:
+        row = next(csv.DictReader(fh))
+    assert row["insecure_transport"] == "yes"

@@ -17,7 +17,7 @@ bookkeeping software to local businesses around Bristol, UK.
 
 | File | Contents |
 |---|---|
-| `enriched.csv` | One row per company, best leads first: tier, score, `score_reasons`, extracted fields, per-field confidence, `flags` for anything rejected, pages used |
+| `enriched.csv` | One row per company, best leads first: tier, score, `score_reasons`, extracted fields, per-field confidence, `flags` for anything rejected, `insecure_transport` (some pages only reachable over plain HTTP), pages used |
 | `summary.md` | Status and tier counts, top-10 table, "needs attention" list, measured run metrics |
 | `run_stats.json` | Machine-readable metrics: time, HTTP requests, cache hits, tokens, cost |
 
@@ -108,7 +108,8 @@ Fields below `validation.min_confidence` (default 0.6) are blanked and listed in
 example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
 `personal_email_rejected`, `off_domain_email` (not on the company's domain or a subdomain),
 `not_found_in_source` (email not on the pages), `off_site_url`,
-`no_form_found_at_url`, `invalid_country_code`, `too_long`, `missing_from_output`.
+`no_form_found_at_url`, `insecure_source` (seen only on a page fetched over plain HTTP),
+`invalid_country_code`, `too_long`, `missing_from_output`.
 
 ## Compliance (GDPR-aware design)
 
@@ -151,7 +152,10 @@ Every website, header and model answer is treated as untrusted input.
   cap (after decompression, so gzip bombs are capped too) and an overall deadline
   (`fetch.deadline_seconds`, default 20 s), not just a per-read timeout. Unknown charsets fall
   back to UTF-8. Only plain `Retry-After: <seconds>` values are honoured. Any unexpected error
-  marks that company `internal_error` and the run continues. If a run is interrupted (Ctrl-C) or
+  marks that company `internal_error` and the run continues.
+- **Plain HTTP is not trusted for contact data.** If HTTPS fails and a site is read over plain
+  HTTP (fallback), the row is marked `insecure_transport` and no contact email or form URL from
+  those pages is accepted (`insecure_source` flag): it could have been altered in transit. If a run is interrupted (Ctrl-C) or
   stopped by a configuration error, the companies already finished are still written out.
 - **No Slack or Markdown injection.** Every field in `summary.md` (company names, errors, model
   output, config text) is escaped: `&`, `<`, `>` (so no `<!channel>` or `<url|label>` in Slack),

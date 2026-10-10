@@ -190,3 +190,15 @@ def test_odd_retry_after_values_fall_back_to_backoff(fetch_settings, clock, valu
     fetcher, _ = make(fetch_settings, clock, script)
     assert fetcher.fetch("https://a.example/").ok
     assert clock.sleeps[-1] == 1.0  # normal backoff, header ignored
+
+
+def test_unreachable_site_is_a_network_error_not_a_robots_block(fetch_settings, clock):
+    script = {
+        "https://a.example/robots.txt": [TransportError("connection refused")],
+        "https://a.example/": [TransportError("connection refused")],
+    }
+    fetcher, transport = make(fetch_settings, clock, script)
+    result = fetcher.fetch("https://a.example/")
+    assert result.skipped is None
+    assert result.error.startswith("network error")
+    assert "https://a.example/" not in [u for u, _ in transport.calls]  # still never fetched

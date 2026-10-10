@@ -48,6 +48,7 @@ class LeadRecord:
     enrichment: Enrichment | None = None
     score: ScoreResult | None = None
     input_truncated: bool = False
+    insecure_transport: bool = False  # some pages came over plain HTTP
     personal_emails_removed: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -183,10 +184,15 @@ def enrich_company(
         record.personal_emails_removed = sum(p.personal_emails_removed for p in pages)
 
         document, record.input_truncated = build_llm_document(pages, settings.llm.max_input_chars)
+        secure = [p for p in pages if p.url.startswith("https://")]
+        insecure = [p for p in pages if not p.url.startswith("https://")]
+        record.insecure_transport = bool(insecure)
         evidence = Evidence(
             domain=company.domain,
-            generic_emails={e for p in pages for e in p.generic_emails},
-            form_urls={p.url for p in pages if p.has_contact_form},
+            generic_emails={e for p in secure for e in p.generic_emails},
+            form_urls={p.url for p in secure if p.has_contact_form},
+            insecure_emails={e for p in insecure for e in p.generic_emails},
+            insecure_form_urls={p.url for p in insecure if p.has_contact_form},
         )
         llm_started = time.monotonic()
         result = extractor.extract(company.name, company.domain, document)

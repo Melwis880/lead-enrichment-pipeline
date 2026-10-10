@@ -30,6 +30,7 @@ CSV_COLUMNS = [
     "contact_form_url",
     "flags",
     "error",
+    "insecure_transport",
     "pages_fetched",
     "industry_confidence",
     "description_confidence",
@@ -64,6 +65,7 @@ def record_row(r: LeadRecord) -> dict[str, object]:
         "domain": r.company.domain,
         "status": r.status,
         "error": r.error,
+        "insecure_transport": "yes" if r.insecure_transport else "",
         "pages_fetched": " ".join(r.pages),
     }
     if r.score:
@@ -214,7 +216,11 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
             f"| {_md(where)} | {_md(contact) or 'none verified'} | {_md('; '.join(positive))} |"
         )
 
-    attention = [r for r in records if r.status != "ok" or (r.enrichment and r.enrichment.flags())]
+    attention = [
+        r
+        for r in records
+        if r.status != "ok" or r.insecure_transport or (r.enrichment and r.enrichment.flags())
+    ]
     lines += ["", "## Needs attention", ""]
     if not attention:
         lines.append("Nothing flagged.")
@@ -225,9 +231,12 @@ def write_summary(records: list[LeadRecord], stats: RunStats, icp: ICP, path: Pa
                 f"{_md(r.error)}"
             )
         else:
-            lines.append(
-                f"- **{_md(r.company.name)}**: flagged {_md(', '.join(r.enrichment.flags()))}"
-            )
+            notes = []
+            if r.insecure_transport:
+                notes.append("fetched over plain HTTP, contact channels not accepted")
+            if r.enrichment and r.enrichment.flags():
+                notes.append("flagged " + ", ".join(r.enrichment.flags()))
+            lines.append(f"- **{_md(r.company.name)}**: {_md('; '.join(notes))}")
 
     lines += [
         "",

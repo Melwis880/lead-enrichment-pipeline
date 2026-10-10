@@ -115,8 +115,11 @@ class Evidence:
     """What we actually saw on the company's pages, used to verify contact channels."""
 
     domain: str
-    generic_emails: set[str] = field(default_factory=set)
-    form_urls: set[str] = field(default_factory=set)
+    generic_emails: set[str] = field(default_factory=set)  # seen on HTTPS pages
+    form_urls: set[str] = field(default_factory=set)  # HTTPS pages with a contact form
+    # Seen only on plain-HTTP pages: could have been injected in transit, so never accepted.
+    insecure_emails: set[str] = field(default_factory=set)
+    insecure_form_urls: set[str] = field(default_factory=set)
 
 
 class ExtractionError(ValueError):
@@ -214,7 +217,8 @@ def _check_field(name: str, raw: Any, evidence: Evidence) -> FieldResult:
             elif not on_company_domain(email, evidence.domain):
                 result.flag = "off_domain_email"
             elif email not in evidence.generic_emails:
-                result.flag = "not_found_in_source"
+                insecure = email in evidence.insecure_emails
+                result.flag = "insecure_source" if insecure else "not_found_in_source"
             else:
                 result.value = email
     elif name == "contact_form_url":
@@ -223,7 +227,8 @@ def _check_field(name: str, raw: Any, evidence: Evidence) -> FieldResult:
             if not same_site(url, evidence.domain):
                 result.flag = "off_site_url"
             elif url.rstrip("/") not in {u.rstrip("/") for u in evidence.form_urls}:
-                result.flag = "no_form_found_at_url"
+                insecure = url.rstrip("/") in {u.rstrip("/") for u in evidence.insecure_form_urls}
+                result.flag = "insecure_source" if insecure else "no_form_found_at_url"
             else:
                 result.value = url
 

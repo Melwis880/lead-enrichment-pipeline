@@ -241,6 +241,10 @@ class PoliteFetcher:
             except TransportError as exc:
                 return FetchResult(url, current, error=f"network error: {exc}")
             policy = self.robots_for(current)
+            if policy.network_error:
+                # Nothing answered on this origin. Still a full disallow (RFC 9309), but report
+                # it as a network failure so the caller may try the plain-HTTP origin instead.
+                return FetchResult(url, current, error="network error: site unreachable")
             if not policy.allowed(current):
                 self.stats["robots_blocked"] += 1
                 return FetchResult(url, current, skipped=f"blocked by {policy.reason}")
