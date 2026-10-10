@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -50,3 +51,32 @@ class JsonDiskCache:
             encoding="utf-8",
         )
         os.replace(tmp, path)  # atomic, so an interrupted run never leaves half a file
+
+    def prune(self, keep: Callable[[str], bool] | None = None) -> int:
+        """Delete expired entries, entries whose key ``keep`` rejects (e.g. a format this version
+        no longer reads), unreadable files and leftover temp files. Returns how many were removed.
+        Without this, entries that are never read again would stay on disk for good."""
+        if not self.directory.is_dir():
+            return 0
+        removed = 0
+        now = time.time()
+        for path in self.directory.glob("*/*"):
+            if path.suffix == ".tmp":
+                path.unlink(missing_ok=True)
+                removed += 1
+                continue
+            if path.suffix != ".json":
+                continue
+            try:
+                entry = json.loads(path.read_text(encoding="utf-8"))
+                key = str(entry.get("_key", ""))
+                age = now - float(entry.get("_stored_at", 0))
+            except (OSError, ValueError, TypeError, AttributeError):
+                path.unlink(missing_ok=True)
+                removed += 1
+                continue
+            expired = self.ttl_seconds is not None and age > self.ttl_seconds
+            if expired or (keep is not None and not keep(key)):
+                path.unlink(missing_ok=True)
+                removed += 1
+        return removed

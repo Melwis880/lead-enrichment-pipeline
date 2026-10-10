@@ -43,6 +43,8 @@ class LLMSettings(BaseModel):
     timeout_seconds: float = 60.0
     max_retries: int = 2
     cache_dir: str = "cache/llm"
+    # Validated results can still hold names from free text, so they are not kept forever.
+    cache_ttl_hours: float = Field(default=720.0, gt=0)  # 30 days
     mock_fixtures_dir: str = "fixtures/llm"
     # USD per million tokens per model ID, for the cost report. A model missing here is reported
     # as "unknown price", never priced as another model.

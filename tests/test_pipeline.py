@@ -62,6 +62,19 @@ def read_rows(tmp_path):
         return {r["domain"]: r for r in csv.DictReader(fh)}
 
 
+def test_run_prunes_raw_llm_answers_left_by_older_versions(in_tmp):
+    from lead_enrich.cache import JsonDiskCache
+
+    legacy = JsonDiskCache(in_tmp / "cache" / "llm-fixtures")
+    legacy.set("llm:raw-answer", {"raw": "owner jane.smith@shop.example"})
+
+    result = run_cli(in_tmp)
+
+    assert result.exit_code == 0, result.output
+    assert "removed 1 expired or outdated entries" in result.output
+    assert not legacy._path("llm:raw-answer").exists()
+
+
 def test_mock_run_end_to_end(in_tmp):
     result = run_cli(in_tmp)
     assert result.exit_code == 0, result.output

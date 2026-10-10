@@ -169,6 +169,11 @@ def _fetch_home(source: PageSource, domain: str) -> tuple[FetchResult, ParsedPag
     return result, page
 
 
+# Keys of validated results. Older versions stored the model's raw answer under other keys;
+# those are never read again and are pruned at startup.
+LLM_CACHE_PREFIX = "llm-validated:"
+
+
 def _llm_cache_key(
     extractor: Extractor,
     company: Company,
@@ -191,7 +196,7 @@ def _llm_cache_key(
         ],
         sort_keys=True,
     )
-    return "llm-validated:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    return LLM_CACHE_PREFIX + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
 def enrich_company(

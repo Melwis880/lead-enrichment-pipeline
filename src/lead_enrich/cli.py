@@ -12,7 +12,14 @@ from .cache import JsonDiskCache
 from .config import load_dotenv, load_settings
 from .extractors import ClaudeExtractor, FatalExtractorError, MockExtractor
 from .fetcher import FixtureTransport, PoliteFetcher, RequestsTransport
-from .pipeline import InputError, LeadRecord, RunStats, read_companies, run_pipeline
+from .pipeline import (
+    LLM_CACHE_PREFIX,
+    InputError,
+    LeadRecord,
+    RunStats,
+    read_companies,
+    run_pipeline,
+)
 from .report import write_csv, write_stats, write_summary
 from .schema import EXTRACTION_JSON_SCHEMA
 from .scoring import load_icp
@@ -116,7 +123,12 @@ def run(
         http_cache = JsonDiskCache(
             settings.fetch.cache_dir + suffix, settings.fetch.cache_ttl_hours
         )
-        llm_cache = JsonDiskCache(settings.llm.cache_dir + suffix)
+        llm_cache = JsonDiskCache(settings.llm.cache_dir + suffix, settings.llm.cache_ttl_hours)
+        # Drop expired entries and raw model answers left by older versions, so nothing that
+        # validation would reject stays on disk.
+        pruned = http_cache.prune() + llm_cache.prune(lambda k: k.startswith(LLM_CACHE_PREFIX))
+        if pruned:
+            click.echo(f"cache: removed {pruned} expired or outdated entries")
 
     if html_fixtures:
         # Waiting between reads of local files protects nobody; the wait is still counted.
