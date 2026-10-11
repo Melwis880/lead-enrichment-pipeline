@@ -129,7 +129,7 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] Screenshot of the mock demo run in README (`docs/demo-run.png`, from an actual run)
 - [x] Full git history scanned for secrets and personal data (findings in the PR description;
       history not rewritten)
-- [ ] CI green on the release-prep PR
+- [x] CI green on the release-prep PR (GitHub Actions on PR #2: Python 3.11, 3.12, 3.13)
 
 ## Current state (2026-10-10)
 
