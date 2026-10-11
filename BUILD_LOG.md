@@ -209,6 +209,10 @@ the code and a fresh mock run.
   `invalid_shape`, `invalid_confidence`) were missing from the README list.
 - Re-measured from the mock run (demo data): page text sent to the LLM is 249-1,608 characters
   per company, average 1,108, matching the earlier figure.
+- Two invented demo businesses had real-looking street addresses with full Bristol postcodes.
+  They now use a street name and an `XX` postcode like the other fixtures (`Wapping Wharf,
+  Bristol BS1 4XX`, `Kingsdown Parade, Bristol BS6 5XX`). `enriched.csv` and `summary.md` from
+  the mock run are unchanged; average LLM input drops from 1,108 to 1,106 characters.
 - History scan (all commits): no API keys, tokens or private keys; only `.env.example` was ever
   tracked; email addresses are on reserved `.example` domains or GitHub/Anthropic noreply
   addresses; phone numbers are in Ofcom's drama ranges or not diallable.
@@ -225,7 +229,8 @@ Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sit
 - Politeness delay a live run would add: 70.9 s (rate limiter, simulated) = ~5.5 s per company.
 - Outcome: 11 enriched (A 5, B 3, C 2, review 1), 1 skipped by robots.txt, 1 fetch failed.
 - Validation caught 4 of 4 planted bad fields; 1 personal email redacted before the LLM step.
-- Demo page text sent to the LLM: 249-1,608 characters per company, average 1,108.
+- Demo page text sent to the LLM: 249-1,608 characters per company, average 1,106 (1,108 before
+  the fixture addresses were made fictional on 2026-10-11).
 - Dry-run cost ceiling (estimate, not measured): <= $0.62 per 100 companies at full 12,000-char
   input, ~450 output tokens, $1 / $5 per million tokens.
 - Real LLM run: **not run** (skipped by decision; no API key available). No measured AI
