@@ -11,6 +11,11 @@ bookkeeping software to local businesses around Bristol, UK.
 **Public business information only.** No personal data is collected; see
 [Compliance](#compliance-gdpr-aware-design).
 
+![Terminal output of the offline mock demo: 13 invented companies processed; 5 tier A, 3 tier B, 2 tier C, 1 needs review, 1 skipped by robots.txt, 1 failed with HTTP 503](docs/demo-run.png)
+
+_Mock demo run (quickstart step 1): saved pages of invented companies and hand-written mock AI
+answers, no network and no API key._
+
 ## What you get
 
 `enrich run input/companies.csv` writes three files to `output/`:
