@@ -232,3 +232,7 @@ Monday morning and posts `summary.md` to a Slack channel. See [`n8n/README.md`](
 - [DECISIONS.md](DECISIONS.md): architecture and security decisions
 - [BUILD_LOG.md](BUILD_LOG.md): build notes, problems hit, measured numbers
 - [CASE_STUDY.md](CASE_STUDY.md): problem, approach, results
+
+## License
+
+MIT, see [LICENSE](LICENSE).
