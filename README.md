@@ -109,7 +109,8 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
 `personal_email_rejected`, `off_domain_email` (not on the company's domain or a subdomain),
 `not_found_in_source` (email not on the pages), `off_site_url`,
 `no_form_found_at_url`, `insecure_source` (seen only on a page fetched over plain HTTP),
-`invalid_country_code`, `too_long`, `missing_from_output`.
+`invalid_country_code`, `invalid_email`, `invalid_shape`, `invalid_confidence`, `too_long`,
+`missing_from_output`.
 
 ## Compliance (GDPR-aware design)
 

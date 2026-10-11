@@ -65,8 +65,8 @@ better than tier C after a month.
 
 | | By hand | Pipeline |
 |---|---|---|
-| Time per company | ~6 min (**estimate**, see assumption below) | 0.007 s compute + ~5.5 s polite waiting (**measured**, mock demo) + LLM latency (**not measured**: real mode not run; ~2 s assumed) |
-| Time per 100 companies | ~10 hours (**estimate**) | ~15-20 minutes unattended (**estimate**: about 4 requests per company at >= 2 s each, measured on the demo, plus an assumed ~2 s LLM call) |
+| Time per company | ~6 min (**estimate**, see assumption below) | 0.007 s compute + ~5.5 s polite waiting (**measured, demo data**: mock run on saved pages) + LLM latency (**not measured**: real mode not run; ~2 s assumed) |
+| Time per 100 companies | ~10 hours (**estimate**) | ~15-20 minutes unattended (**estimate**: about 4 requests per company at >= 2 s each, from the demo data, plus an assumed ~2 s LLM call) |
 | AI cost per 100 companies | none | **Not measured** (real mode not run). **Estimate**: <= $0.62, from the dry-run formula (full 12,000-character input at ~4 characters per token, ~1,000 prompt tokens, ~450 output tokens, $1/$5 per million tokens) |
 | Extraction quality | Depends on who looks | **Not measured** (real mode not run). Mock answers only show that bad fields are caught and flagged |
 | Consistency | Depends on who looks | Same rules every time; every score has written reasons |
@@ -77,7 +77,7 @@ contact pages, judge industry and size, copy a contact channel, type about 6 fie
 spreadsheet: about 6 minutes per company for someone practised. Replace this with a timed sample
 from the actual team before quoting it.
 
-**What was measured on the demo run** (`MOCK_LLM=1 enrich run input/companies.csv
+**What was measured on the demo run (demo data)** (`MOCK_LLM=1 enrich run input/companies.csv
 --html-fixtures fixtures/sites`, 13 companies, see `examples/demo-mock/run_stats.json`):
 
 - Pipeline compute (fetch from saved files, parse, validate, score, write outputs): 0.09 s total.
@@ -95,8 +95,8 @@ representative number.
 
 ## Lessons
 
-- The model is the easy part. The AI module is about 10% of the code (183 of ~1,800 lines); the
-  rest is politeness, validation and making failures visible.
+- The model is the easy part. The AI module is about 7% of the code (`extractors.py` is 170 of
+  2,544 lines in `src/`); the rest is politeness, validation and making failures visible.
 - Asking the model for a confidence per field is only useful if you act on it. Here, anything
   under 0.6 is blanked and flagged.
 - "Verify against the source" is cheap and catches the most harmful errors: invented contact
