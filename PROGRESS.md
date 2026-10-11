@@ -119,6 +119,18 @@ Status legend: `[x]` done, `[ ]` not done. Re-read at the start of each work chu
 - [x] `::/96` not public; invalid port and unparsable redirect give a clean block
 - [x] README: what `trust_env = False` does and does not cover
 
+## Phase 15 - Public release prep (2026-10-11)
+- [x] MIT LICENSE, README License section, `license = "MIT"` in pyproject.toml
+- [x] README and CASE_STUDY checked against the code; quickstart run as written in mock mode
+- [x] Stale numbers fixed (AI share of the code, test count), missing validation flags listed,
+      demo measurements labelled "demo data"
+- [x] Local paths and internal references removed from BUILD_LOG and OPTIMIZATIONS
+- [x] All relative links and images resolve
+- [x] Screenshot of the mock demo run in README (`docs/demo-run.png`, from an actual run)
+- [x] Full git history scanned for secrets and personal data (findings in the PR description;
+      history not rewritten)
+- [ ] CI green on the release-prep PR
+
 ## Current state (2026-10-10)
 
 **Done**

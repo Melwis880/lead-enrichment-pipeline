@@ -199,6 +199,24 @@ audit still found one medium and several low issues, two of them introduced by m
 **Post hook**
 - "My security fix broke German bakeries: the links were now punycode, the input list was not."
 
+## Public release prep (2026-10-11)
+Before making the repo public, every claim in README.md and CASE_STUDY.md was checked against
+the code and a fresh mock run.
+- The quickstart commands worked exactly as written; the fresh `enriched.csv` was byte-identical
+  to `examples/demo-mock/enriched.csv`.
+- Drift found: the "AI part is 183 of ~1,800 lines" figure was stale after the audit passes
+  (now 170 of 2,544 lines, about 7%), and three validation flags (`invalid_email`,
+  `invalid_shape`, `invalid_confidence`) were missing from the README list.
+- Re-measured from the mock run (demo data): page text sent to the LLM is 249-1,608 characters
+  per company, average 1,108, matching the earlier figure.
+- History scan (all commits): no API keys, tokens or private keys; only `.env.example` was ever
+  tracked; email addresses are on reserved `.example` domains or GitHub/Anthropic noreply
+  addresses; phone numbers are in Ofcom's drama ranges or not diallable.
+
+**Post hook**
+- "Docs drift faster than code: two audit passes later, my own 'AI is 10% of the code' line was
+  wrong. Re-measure every number before you publish."
+
 ## Measured numbers (demo data)
 All from the mock demo: 13 invented companies, saved HTML, hand-written mock LLM answers.
 Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`.
@@ -231,6 +249,7 @@ Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sit
   HTML on disk for a week. Data minimisation has to cover storage, not just the API call."
 
 ## Suggested screenshots / GIFs
+- Done: `docs/demo-run.png` (terminal output of the mock demo run, shown at the top of README).
 - Terminal GIF of `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`
   showing the per-company progress lines with tiers and flags.
 - `enrich run input/companies.csv --dry-run` output (plan + cost ceiling, nothing fetched).
