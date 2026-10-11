@@ -17,8 +17,8 @@ where they came from.
 
 ## Problems hit and how they were solved
 - **`pytest` imported nothing.** `ModuleNotFoundError: No module named 'lead_enrich'` right after
-  `pip install -e .`. The `pytest` on PATH was a separate uv tool environment
-  (`#!/root/.local/share/uv/tools/pytest/bin/python`). Fix: always run `python -m pytest`.
+  `pip install -e .`. The `pytest` on PATH was a separate uv tool environment (its shebang
+  pointed at a different Python), not the project's. Fix: always run `python -m pytest`.
 - **Credentials error is a `TypeError`, not an API error.** With no key, the Anthropic SDK
   raises `TypeError: Could not resolve authentication method...` on the first request. Caught
   and turned into one clear message ("Set ANTHROPIC_API_KEY ... or run with MOCK_LLM=1") that
@@ -213,10 +213,10 @@ Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sit
 - Real LLM run: **not run** (skipped by decision; no API key available). No measured AI
   tokens, cost, latency or extraction accuracy exist for this project.
 - Test suite: 178 tests after the security fixes (92 before), offline, passing on Python 3.11,
-  3.12 and 3.13.
+  3.12 and 3.13. After the later audit passes: 271 tests.
 
 ## Post hooks
-- "The AI part (prompt, API call, error handling) is 183 of ~1,800 lines, about 10%. Politeness,
+- "The AI part (prompt, API call, error handling) is 170 of 2,544 lines, about 7%. Politeness,
   validation and failure reporting are the rest."
 - "My own end-to-end test caught me: I redacted every personal email, and the person's first name
   was still sitting in the sentence next to it."
