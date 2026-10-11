@@ -11,6 +11,11 @@ bookkeeping software to local businesses around Bristol, UK.
 **Public business information only.** No personal data is collected; see
 [Compliance](#compliance-gdpr-aware-design).
 
+![Terminal output of the offline mock demo: 13 invented companies processed; 5 tier A, 3 tier B, 2 tier C, 1 needs review, 1 skipped by robots.txt, 1 failed with HTTP 503](docs/demo-run.png)
+
+_Mock demo run (quickstart step 1): saved pages of invented companies and hand-written mock AI
+answers, no network and no API key._
+
 ## What you get
 
 `enrich run input/companies.csv` writes three files to `output/`:
@@ -109,7 +114,8 @@ example `size_signal:low_confidence(0.40)`. Other flags: `invalid_value`,
 `personal_email_rejected`, `off_domain_email` (not on the company's domain or a subdomain),
 `not_found_in_source` (email not on the pages), `off_site_url`,
 `no_form_found_at_url`, `insecure_source` (seen only on a page fetched over plain HTTP),
-`invalid_country_code`, `too_long`, `missing_from_output`.
+`invalid_country_code`, `invalid_email`, `invalid_shape`, `invalid_confidence`, `too_long`,
+`missing_from_output`.
 
 ## Compliance (GDPR-aware design)
 
@@ -232,3 +238,7 @@ Monday morning and posts `summary.md` to a Slack channel. See [`n8n/README.md`](
 - [DECISIONS.md](DECISIONS.md): architecture and security decisions
 - [BUILD_LOG.md](BUILD_LOG.md): build notes, problems hit, measured numbers
 - [CASE_STUDY.md](CASE_STUDY.md): problem, approach, results
+
+## License
+
+MIT, see [LICENSE](LICENSE).

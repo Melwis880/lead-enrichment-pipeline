@@ -3,6 +3,13 @@
 Date: 2026-10-10. Scope: everything under `src/lead_enrich/`, `config/`, `n8n/`, CI and tests, at
 commit `aaebffa`. Nothing in the code was changed; this file only reports.
 
+> **Reading this today.** This is a dated audit of the code *before* the fixes listed under
+> "Applied" at the end. Commit hashes (`aaebffa`, `63ee529`, ...) refer to development commits
+> that were squashed into one commit when the work was merged, so they are not in this
+> repository's history, and `file.py:NN` links point to line numbers from that earlier code, not
+> the current files. The measurement scripts named below were one-off scratch scripts and are
+> not part of the repo; the regression tests for each fix are in `tests/`.
+
 **How this was checked.** I read all the source, then ran four experiments from a scratch
 directory against the project's own classes (no outside network):
 
@@ -14,8 +21,8 @@ directory against the project's own classes (no outside network):
 4. CPU timing of `parse_html` and the email regexes on large and adversarial inputs, plus a count
    of text repeated across each company's pages in the fixtures.
 
-Claude API facts (prices, caching minimums, Batch API) come from the bundled Claude API reference
-dated 2026-10-06. Real mode has never been run, so every LLM cost and latency figure here is an
+Claude API facts (prices, caching minimums, Batch API) come from Anthropic's Claude API
+reference as of 2026-10-06. Real mode has never been run, so every LLM cost and latency figure here is an
 **estimate**.
 
 ### Measured baseline
@@ -530,7 +537,7 @@ Include `effort` in `_cache_key` so cached answers from different effort levels 
 
 ## Applied (2026-10-10)
 
-Applied on branch `claude/youthful-knuth-jlcprz`, one commit per item. Each fix has a test
+Applied on a feature branch, one commit per item. Each fix has a test
 that reproduces the problem and fails on the old code (checked by running the new tests
 against a copy of `src/` from `aaebffa`). `MOCK_LLM=1 pytest` passed after every commit.
 
@@ -602,7 +609,7 @@ Suite time locally about 6 s -> 8-10 s, mostly from the new real-socket tests.
   `llm.prices`.
 
 ### Deferred, and why
-- **F2, rest (per-company time budget):** not part of this request. With the retry and fallback
+- **F2, rest (per-company time budget):** out of scope for this pass. With the retry and fallback
   changes, the worst single site drops from 186 s to about 30 s, so the budget matters less.
   Still open as well: an overall deadline for the response-header phase (PROGRESS.md "Next
   steps").

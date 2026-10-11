@@ -17,8 +17,8 @@ where they came from.
 
 ## Problems hit and how they were solved
 - **`pytest` imported nothing.** `ModuleNotFoundError: No module named 'lead_enrich'` right after
-  `pip install -e .`. The `pytest` on PATH was a separate uv tool environment
-  (`#!/root/.local/share/uv/tools/pytest/bin/python`). Fix: always run `python -m pytest`.
+  `pip install -e .`. The `pytest` on PATH was a separate uv tool environment (its shebang
+  pointed at a different Python), not the project's. Fix: always run `python -m pytest`.
 - **Credentials error is a `TypeError`, not an API error.** With no key, the Anthropic SDK
   raises `TypeError: Could not resolve authentication method...` on the first request. Caught
   and turned into one clear message ("Set ANTHROPIC_API_KEY ... or run with MOCK_LLM=1") that
@@ -199,6 +199,28 @@ audit still found one medium and several low issues, two of them introduced by m
 **Post hook**
 - "My security fix broke German bakeries: the links were now punycode, the input list was not."
 
+## Public release prep (2026-10-11)
+Before making the repo public, every claim in README.md and CASE_STUDY.md was checked against
+the code and a fresh mock run.
+- The quickstart commands worked exactly as written; the fresh `enriched.csv` was byte-identical
+  to `examples/demo-mock/enriched.csv`.
+- Drift found: the "AI part is 183 of ~1,800 lines" figure was stale after the audit passes
+  (now 170 of 2,544 lines, about 7%), and three validation flags (`invalid_email`,
+  `invalid_shape`, `invalid_confidence`) were missing from the README list.
+- Re-measured from the mock run (demo data): page text sent to the LLM is 249-1,608 characters
+  per company, average 1,108, matching the earlier figure.
+- Two invented demo businesses had real-looking street addresses with full Bristol postcodes.
+  They now use a street name and an `XX` postcode like the other fixtures (`Wapping Wharf,
+  Bristol BS1 4XX`, `Kingsdown Parade, Bristol BS6 5XX`). `enriched.csv` and `summary.md` from
+  the mock run are unchanged; average LLM input drops from 1,108 to 1,106 characters.
+- History scan (all commits): no API keys, tokens or private keys; only `.env.example` was ever
+  tracked; email addresses are on reserved `.example` domains or GitHub/Anthropic noreply
+  addresses; phone numbers are in Ofcom's drama ranges or not diallable.
+
+**Post hook**
+- "Docs drift faster than code: two audit passes later, my own 'AI is 10% of the code' line was
+  wrong. Re-measure every number before you publish."
+
 ## Measured numbers (demo data)
 All from the mock demo: 13 invented companies, saved HTML, hand-written mock LLM answers.
 Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`.
@@ -207,16 +229,17 @@ Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sit
 - Politeness delay a live run would add: 70.9 s (rate limiter, simulated) = ~5.5 s per company.
 - Outcome: 11 enriched (A 5, B 3, C 2, review 1), 1 skipped by robots.txt, 1 fetch failed.
 - Validation caught 4 of 4 planted bad fields; 1 personal email redacted before the LLM step.
-- Demo page text sent to the LLM: 249-1,608 characters per company, average 1,108.
+- Demo page text sent to the LLM: 249-1,608 characters per company, average 1,106 (1,108 before
+  the fixture addresses were made fictional on 2026-10-11).
 - Dry-run cost ceiling (estimate, not measured): <= $0.62 per 100 companies at full 12,000-char
   input, ~450 output tokens, $1 / $5 per million tokens.
 - Real LLM run: **not run** (skipped by decision; no API key available). No measured AI
   tokens, cost, latency or extraction accuracy exist for this project.
 - Test suite: 178 tests after the security fixes (92 before), offline, passing on Python 3.11,
-  3.12 and 3.13.
+  3.12 and 3.13. After the later audit passes: 271 tests.
 
 ## Post hooks
-- "The AI part (prompt, API call, error handling) is 183 of ~1,800 lines, about 10%. Politeness,
+- "The AI part (prompt, API call, error handling) is 170 of 2,544 lines, about 7%. Politeness,
   validation and failure reporting are the rest."
 - "My own end-to-end test caught me: I redacted every personal email, and the person's first name
   was still sitting in the sentence next to it."
@@ -231,6 +254,7 @@ Command: `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sit
   HTML on disk for a week. Data minimisation has to cover storage, not just the API call."
 
 ## Suggested screenshots / GIFs
+- Done: `docs/demo-run.png` (terminal output of the mock demo run, shown at the top of README).
 - Terminal GIF of `MOCK_LLM=1 enrich run input/companies.csv --html-fixtures fixtures/sites`
   showing the per-company progress lines with tiers and flags.
 - `enrich run input/companies.csv --dry-run` output (plan + cost ceiling, nothing fetched).

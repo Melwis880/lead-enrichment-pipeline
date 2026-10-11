@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # 77: SPDX `license` string (PEP 639)
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,8 @@ name = "lead-enrich"
 version = "0.1.0"
 description = "Enrich a list of company websites into a scored, sales-ready lead list (public business info only)."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=1.12,<2",
